@@ -6,6 +6,7 @@ import GameOver from './GameOver';
 import HighScoreTable from './HighScoreTable';
 import StartScreen from './StartScreen';
 import PauseScreen from './PauseScreen';
+import { apiClient } from '../services/apiClient';
 
 interface PhaserGameProps {
   onGameReady?: (game: Phaser.Game) => void;
@@ -28,37 +29,29 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ onGameReady }) => {
   const [showHighScores, setShowHighScores] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
   const [gameStarted, setGameStarted] = useState(false);
+  const [refreshHighScores, setRefreshHighScores] = useState(false);
 
-  const handleSubmitScore = useCallback(async (acronym: string) => {
-    try {
-      const response = await fetch('/api/highscores', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          acronym,
-          score: finalScore,
-        }),
-      });
+  const handleScoreSubmitted = useCallback(() => {
+    // Trigger high scores refresh and show the table
+    setRefreshHighScores(prev => !prev);
+    
+    setTimeout(() => {
+      setShowGameOver(false);
+      setShowHighScores(true);
+    }, 1000);
+  }, []);
 
-      if (!response.ok) {
-        throw new Error('Failed to submit score');
-      }
-
-      // Show high scores after successful submission
-      setTimeout(() => {
-        setShowGameOver(false);
-        setShowHighScores(true);
-      }, 1000);
-    } catch (error) {
-      console.error('Error submitting score:', error);
-    }
-  }, [finalScore]);
-
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback(async () => {
     setShowStartScreen(false);
     setGameStarted(true);
+    
+    // Preload high scores in the background
+    try {
+      await apiClient.getHighScores();
+    } catch (error) {
+      console.error('Failed to preload high scores:', error);
+      // Continue with game start even if high scores fail to load
+    }
     
     // Start the game if it was paused initially
     if (gameRef.current) {
@@ -212,14 +205,17 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ onGameReady }) => {
       {showGameOver && (
         <GameOver
           score={finalScore}
-          onSubmitScore={handleSubmitScore}
+          onScoreSubmitted={handleScoreSubmitted}
           onRestart={handleRestart}
         />
       )}
       
       {/* High Score Table */}
       {showHighScores && (
-        <HighScoreTable onClose={() => setShowHighScores(false)} />
+        <HighScoreTable 
+          onClose={() => setShowHighScores(false)} 
+          refresh={refreshHighScores}
+        />
       )}
     </div>
   );

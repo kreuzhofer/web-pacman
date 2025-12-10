@@ -264,22 +264,22 @@
     - **Property 12: Game Initialization Consistency**
     - **Validates: Requirements 7.1**
 
-- [ ] 14. Connect frontend to backend API
-  - [ ] 14.1 Implement API client service
+- [x] 14. Connect frontend to backend API
+  - [x] 14.1 Implement API client service
     - Create axios-based API client
     - Implement getHighScores method
     - Implement submitScore method
     - Add error handling and retry logic
     - _Requirements: 6.2, 6.3, 9.2_
   
-  - [ ] 14.2 Integrate API calls with game flow
+  - [x] 14.2 Integrate API calls with game flow
     - Fetch high scores on game load
     - Submit score after game over
     - Handle API errors gracefully
     - Show loading states
     - _Requirements: 6.2, 6.3_
   
-  - [ ] 14.3 Write property test for API error handling
+  - [x] 14.3 Write property test for API error handling
     - **Property 14: API Error Handling Robustness**
     - **Validates: Requirements 9.1, 9.2, 9.3**
 

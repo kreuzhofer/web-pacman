@@ -1,42 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import './HighScoreTable.css';
-
-interface HighScore {
-  id: string;
-  acronym: string;
-  score: number;
-  createdAt: string;
-  rank?: number;
-}
+import { apiClient, HighScore } from '../services/apiClient';
 
 interface HighScoreTableProps {
   onClose?: () => void;
+  refresh?: boolean;
 }
 
-const HighScoreTable: React.FC<HighScoreTableProps> = ({ onClose }) => {
+const HighScoreTable: React.FC<HighScoreTableProps> = ({ onClose, refresh }) => {
   const [highScores, setHighScores] = useState<HighScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     fetchHighScores();
-  }, []);
+  }, [refresh]);
 
   const fetchHighScores = async () => {
     try {
       setLoading(true);
       setError('');
       
-      const response = await fetch('/api/highscores');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch high scores');
-      }
-      
-      const data = await response.json();
-      setHighScores(data);
+      const scores = await apiClient.getHighScores();
+      setHighScores(scores);
     } catch (err) {
-      setError('Unable to load high scores');
+      const errorMessage = err instanceof Error ? err.message : 'Unable to load high scores';
+      setError(errorMessage);
       console.error('Error fetching high scores:', err);
     } finally {
       setLoading(false);

@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import './GameOver.css';
+import { apiClient } from '../services/apiClient';
 
 interface GameOverProps {
   score: number;
-  onSubmitScore: (acronym: string) => void;
+  onScoreSubmitted?: () => void;
   onRestart?: () => void;
 }
 
-const GameOver: React.FC<GameOverProps> = ({ score, onSubmitScore, onRestart }) => {
+const GameOver: React.FC<GameOverProps> = ({ score, onScoreSubmitted, onRestart }) => {
   const [acronym, setAcronym] = useState('');
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const validateAcronym = (value: string): boolean => {
     // Must be exactly 3 characters
@@ -40,12 +42,32 @@ const GameOver: React.FC<GameOverProps> = ({ score, onSubmitScore, onRestart }) 
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (validateAcronym(acronym)) {
-      onSubmitScore(acronym.toUpperCase());
-      setSubmitted(true);
+      setSubmitting(true);
+      setError('');
+      
+      try {
+        await apiClient.submitScore({
+          acronym: acronym.toUpperCase(),
+          score: score,
+        });
+        
+        setSubmitted(true);
+        
+        // Notify parent component that score was submitted
+        if (onScoreSubmitted) {
+          onScoreSubmitted();
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to submit score';
+        setError(errorMessage);
+        console.error('Error submitting score:', err);
+      } finally {
+        setSubmitting(false);
+      }
     }
   };
 
@@ -79,9 +101,9 @@ const GameOver: React.FC<GameOverProps> = ({ score, onSubmitScore, onRestart }) 
             <button
               type="submit"
               className="submit-button"
-              disabled={acronym.length !== 3 || error !== ''}
+              disabled={acronym.length !== 3 || error !== '' || submitting}
             >
-              SUBMIT
+              {submitting ? 'SUBMITTING...' : 'SUBMIT'}
             </button>
           </form>
         ) : (
