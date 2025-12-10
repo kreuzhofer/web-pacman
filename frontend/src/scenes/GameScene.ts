@@ -24,8 +24,9 @@ class GameScene extends Phaser.Scene {
   private ghosts!: GhostState[];
   private readonly TILE_SIZE = 16;
   private readonly PLAYER_SPEED = 80;
-  private readonly GHOST_SPEED = 60;
-  private readonly GHOST_FRIGHTENED_SPEED = 40;
+  private readonly BASE_GHOST_SPEED = 60;
+  private readonly BASE_GHOST_FRIGHTENED_SPEED = 40;
+  private readonly BASE_POWER_PELLET_DURATION = 10000; // 10 seconds
   private scatterModeTimer: number = 0;
   private readonly SCATTER_DURATION = 7000; // 7 seconds
   private readonly CHASE_DURATION = 20000; // 20 seconds
@@ -510,6 +511,9 @@ class GameScene extends Phaser.Scene {
       
       // Increase score by 10 points
       this.gameState.score += 10;
+      
+      // Check if all dots are collected
+      this.checkLevelCompletion();
     }
   }
   
@@ -563,6 +567,9 @@ class GameScene extends Phaser.Scene {
       { x: 2, y: this.currentMaze.height - 2 }, // Orange: bottom-left
     ];
     
+    // Calculate ghost speed based on level (increase by 5% per level, max 50% increase)
+    const ghostSpeed = this.calculateGhostSpeed();
+    
     this.ghosts = colors.map((color, index) => {
       const sprite = this.physics.add.sprite(spawnX, spawnY, 'ghosts', index * 3);
       sprite.setCollideWorldBounds(true);
@@ -575,7 +582,7 @@ class GameScene extends Phaser.Scene {
         color,
         mode: 'scatter' as GhostMode,
         direction: 'left' as Direction,
-        speed: this.GHOST_SPEED,
+        speed: ghostSpeed,
         scatterTarget: scatterTargets[index],
       };
     });
@@ -768,7 +775,8 @@ class GameScene extends Phaser.Scene {
   private moveGhost(ghost: GhostState): void {
     if (!ghost.sprite) return;
     
-    const speed = ghost.mode === 'frightened' ? this.GHOST_FRIGHTENED_SPEED : ghost.speed;
+    const frightenedSpeed = this.calculateGhostFrightenedSpeed();
+    const speed = ghost.mode === 'frightened' ? frightenedSpeed : ghost.speed;
     
     switch (ghost.direction) {
       case 'left':
@@ -788,7 +796,8 @@ class GameScene extends Phaser.Scene {
   
   private enterPowerMode(): void {
     this.gameState.powerMode = true;
-    this.gameState.powerModeTimer = 10000;
+    // Calculate power pellet duration based on level (decrease by 10% per level, min 3 seconds)
+    this.gameState.powerModeTimer = this.calculatePowerPelletDuration();
     
     // Change all ghosts to frightened mode
     this.ghosts.forEach(ghost => {
@@ -955,6 +964,90 @@ class GameScene extends Phaser.Scene {
     
     // Reset ghost positions
     this.ghosts.forEach(ghost => this.respawnGhost(ghost));
+  }
+  
+  private checkLevelCompletion(): void {
+    // Check if all dots and power pellets are collected
+    const remainingDots = this.dots.getChildren().length;
+    const remainingPellets = this.powerPellets.getChildren().length;
+    
+    if (remainingDots === 0 && remainingPellets === 0) {
+      this.advanceLevel();
+    }
+  }
+  
+  private advanceLevel(): void {
+    // Increment level
+    this.gameState.level += 1;
+    
+    // Stop player and ghosts
+    this.player?.setVelocity(0, 0);
+    this.ghosts.forEach(ghost => ghost.sprite?.setVelocity(0, 0));
+    
+    // Clear current maze elements
+    this.clearMaze();
+    
+    // Generate new maze for next level
+    this.generateAndRenderMaze();
+    
+    // Reset movement state
+    this.currentDirection = null;
+    this.nextDirection = null;
+    
+    // Exit power mode if active
+    if (this.gameState.powerMode) {
+      this.exitPowerMode();
+    }
+    
+    // Emit level advance event
+    this.events.emit('levelAdvance', this.gameState.level);
+  }
+  
+  private clearMaze(): void {
+    // Destroy all dots
+    this.dots?.clear(true, true);
+    
+    // Destroy all power pellets
+    this.powerPellets?.clear(true, true);
+    
+    // Destroy all ghost sprites
+    this.ghosts?.forEach(ghost => {
+      ghost.sprite?.destroy();
+    });
+    
+    // Destroy tilemap and layers
+    this.wallLayer?.destroy();
+    this.tilemap?.destroy();
+  }
+  
+  public getLevel(): number {
+    return this.gameState.level;
+  }
+  
+  private calculateGhostSpeed(): number {
+    // Increase ghost speed by 5% per level, max 50% increase (level 10+)
+    const speedMultiplier = Math.min(1 + (this.gameState.level - 1) * 0.05, 1.5);
+    return this.BASE_GHOST_SPEED * speedMultiplier;
+  }
+  
+  private calculateGhostFrightenedSpeed(): number {
+    // Frightened speed also increases with level but stays slower than normal
+    const speedMultiplier = Math.min(1 + (this.gameState.level - 1) * 0.05, 1.5);
+    return this.BASE_GHOST_FRIGHTENED_SPEED * speedMultiplier;
+  }
+  
+  private calculatePowerPelletDuration(): number {
+    // Decrease power pellet duration by 10% per level, minimum 3 seconds
+    const durationMultiplier = Math.max(1 - (this.gameState.level - 1) * 0.1, 0.3);
+    return this.BASE_POWER_PELLET_DURATION * durationMultiplier;
+  }
+  
+  public getPowerPelletDuration(): number {
+    return this.calculatePowerPelletDuration();
+  }
+  
+  public getGhostSpeed(): number {
+    return this.calculateGhostSpeed();
   }
 }
 
