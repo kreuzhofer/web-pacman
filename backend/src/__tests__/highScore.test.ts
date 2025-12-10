@@ -2,12 +2,15 @@ import request from 'supertest';
 import app from '../index';
 import prisma from '../db';
 
+// Set test environment
+process.env.NODE_ENV = 'test';
+
 describe('High Score API Endpoints', () => {
   const testIds: string[] = [];
 
   beforeAll(async () => {
-    // Wait for server to be ready
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // Connect to database for tests
+    await prisma.$connect();
   });
 
   afterAll(async () => {
