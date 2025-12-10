@@ -195,8 +195,8 @@
     - **Property 6: Level Progression Logic**
     - **Validates: Requirements 2.5, 3.3**
 
-- [ ] 11. Add audio system
-  - [ ] 11.1 Source or create sound effects
+- [x] 11. Add audio system
+  - [x] 11.1 Source or create sound effects
     - Find/create movement sound (chomp)
     - Find/create dot collection sound
     - Find/create power pellet sound
@@ -204,7 +204,7 @@
     - Find/create death sound
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
   
-  - [ ] 11.2 Implement audio playback
+  - [x] 11.2 Implement audio playback
     - Load audio files in Phaser preload
     - Play movement sound on Pacman movement
     - Play dot collection sound on dot pickup
@@ -213,7 +213,7 @@
     - Play death sound sequence on life loss
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
   
-  - [ ] 11.3 Write property test for audio synchronization
+  - [x] 11.3 Write property test for audio synchronization
     - **Property 10: Audio Event Synchronization**
     - **Validates: Requirements 5.1, 5.2, 5.3, 5.4, 5.5**
 

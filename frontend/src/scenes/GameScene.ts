@@ -45,6 +45,15 @@ class GameScene extends Phaser.Scene {
   // Touch input state
   private touchStartX: number = 0;
   private touchStartY: number = 0;
+  
+  // Audio
+  private chompSound!: Phaser.Sound.BaseSound;
+  private dotSound!: Phaser.Sound.BaseSound;
+  private powerPelletSound!: Phaser.Sound.BaseSound;
+  private eatGhostSound!: Phaser.Sound.BaseSound;
+  private deathSound!: Phaser.Sound.BaseSound;
+  private sirenSound!: Phaser.Sound.BaseSound;
+  private isMoving: boolean = false;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -55,6 +64,14 @@ class GameScene extends Phaser.Scene {
     // In production, these would be actual image files
     // For now, we generate them programmatically
     SpriteAssets.loadAllSprites(this);
+    
+    // Load audio files
+    this.load.audio('chomp', 'assets/sounds/chomp.wav');
+    this.load.audio('dot', 'assets/sounds/dot.wav');
+    this.load.audio('power-pellet', 'assets/sounds/power-pellet.wav');
+    this.load.audio('eat-ghost', 'assets/sounds/eat-ghost.wav');
+    this.load.audio('death', 'assets/sounds/death.wav');
+    this.load.audio('siren', 'assets/sounds/siren.wav');
   }
 
   create(): void {
@@ -76,6 +93,9 @@ class GameScene extends Phaser.Scene {
 
     // Create animations
     this.createAnimations();
+    
+    // Initialize audio
+    this.initializeAudio();
 
     // Generate and render maze
     this.generateAndRenderMaze();
@@ -152,6 +172,16 @@ class GameScene extends Phaser.Scene {
       frameRate: 4,
       repeat: -1,
     });
+  }
+  
+  private initializeAudio(): void {
+    // Initialize all sound effects
+    this.chompSound = this.sound.add('chomp', { volume: 0.3 });
+    this.dotSound = this.sound.add('dot', { volume: 0.2 });
+    this.powerPelletSound = this.sound.add('power-pellet', { volume: 0.3 });
+    this.eatGhostSound = this.sound.add('eat-ghost', { volume: 0.3 });
+    this.deathSound = this.sound.add('death', { volume: 0.4 });
+    this.sirenSound = this.sound.add('siren', { volume: 0.2, loop: true });
   }
 
   private setupInput(): void {
@@ -256,7 +286,11 @@ class GameScene extends Phaser.Scene {
       } else {
         // Stop if can't move in current direction
         this.player.setVelocity(0, 0);
+        this.isMoving = false;
       }
+    } else {
+      // No direction, player is stopped
+      this.isMoving = false;
     }
   }
   
@@ -304,6 +338,12 @@ class GameScene extends Phaser.Scene {
   private movePlayer(direction: Direction): void {
     if (!this.player) return;
     
+    // Play movement sound if not already playing
+    if (!this.isMoving) {
+      this.isMoving = true;
+      this.playChompSound();
+    }
+    
     // Set velocity based on direction
     switch (direction) {
       case 'left':
@@ -328,6 +368,19 @@ class GameScene extends Phaser.Scene {
     
     // Align player to grid for smoother movement
     this.alignToGrid();
+  }
+  
+  private playChompSound(): void {
+    // Play chomp sound with a slight delay between plays for rhythm
+    if (this.chompSound && !this.chompSound.isPlaying) {
+      this.chompSound.play();
+      // Schedule next chomp sound
+      this.time.delayedCall(200, () => {
+        if (this.isMoving && this.gameState.gameStatus === 'playing') {
+          this.playChompSound();
+        }
+      });
+    }
   }
   
   private alignToGrid(): void {
@@ -509,6 +562,11 @@ class GameScene extends Phaser.Scene {
       // Remove the dot from the scene
       dot.destroy();
       
+      // Play dot collection sound
+      if (this.dotSound) {
+        this.dotSound.play();
+      }
+      
       // Increase score by 10 points
       this.gameState.score += 10;
       
@@ -525,6 +583,11 @@ class GameScene extends Phaser.Scene {
     if (pellet instanceof Phaser.GameObjects.GameObject) {
       // Remove the power pellet from the scene
       pellet.destroy();
+      
+      // Play power pellet sound
+      if (this.powerPelletSound) {
+        this.powerPelletSound.play();
+      }
       
       // Activate power mode
       this.enterPowerMode();
@@ -799,6 +862,11 @@ class GameScene extends Phaser.Scene {
     // Calculate power pellet duration based on level (decrease by 10% per level, min 3 seconds)
     this.gameState.powerModeTimer = this.calculatePowerPelletDuration();
     
+    // Play siren sound during power mode
+    if (this.sirenSound && !this.sirenSound.isPlaying) {
+      this.sirenSound.play();
+    }
+    
     // Change all ghosts to frightened mode
     this.ghosts.forEach(ghost => {
       if (ghost.mode !== 'eaten') {
@@ -811,6 +879,11 @@ class GameScene extends Phaser.Scene {
   private exitPowerMode(): void {
     this.gameState.powerMode = false;
     this.gameState.powerModeTimer = 0;
+    
+    // Stop siren sound
+    if (this.sirenSound && this.sirenSound.isPlaying) {
+      this.sirenSound.stop();
+    }
     
     // Return ghosts to normal mode
     this.ghosts.forEach(ghost => {
@@ -846,6 +919,11 @@ class GameScene extends Phaser.Scene {
   }
   
   private eatGhost(ghost: GhostState): void {
+    // Play ghost eaten sound
+    if (this.eatGhostSound) {
+      this.eatGhostSound.play();
+    }
+    
     // Award bonus points (200, 400, 800, 1600 for consecutive ghosts)
     // For simplicity, we'll award 200 points per ghost
     this.gameState.score += 200;
@@ -861,6 +939,19 @@ class GameScene extends Phaser.Scene {
   }
   
   private loseLife(): void {
+    // Play death sound
+    if (this.deathSound) {
+      this.deathSound.play();
+    }
+    
+    // Stop movement sound
+    this.isMoving = false;
+    
+    // Stop siren if playing
+    if (this.sirenSound && this.sirenSound.isPlaying) {
+      this.sirenSound.stop();
+    }
+    
     // Decrease lives
     this.gameState.lives -= 1;
     
@@ -868,14 +959,22 @@ class GameScene extends Phaser.Scene {
     if (this.gameState.lives <= 0) {
       this.gameOver();
     } else {
-      // Reset positions
-      this.resetPositions();
+      // Reset positions after death sound finishes
+      this.time.delayedCall(1000, () => {
+        this.resetPositions();
+      });
     }
   }
   
   private gameOver(): void {
     this.gameState.gameStatus = 'gameOver';
     this.gameState.lives = 0;
+    
+    // Stop all sounds
+    this.isMoving = false;
+    if (this.sirenSound && this.sirenSound.isPlaying) {
+      this.sirenSound.stop();
+    }
     
     // Stop all sprites
     this.player?.setVelocity(0, 0);
