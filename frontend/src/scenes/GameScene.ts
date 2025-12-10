@@ -41,6 +41,7 @@ class GameScene extends Phaser.Scene {
     S: Phaser.Input.Keyboard.Key;
     D: Phaser.Input.Keyboard.Key;
   };
+  private spaceKey!: Phaser.Input.Keyboard.Key;
   
   // Touch input state
   private touchStartX: number = 0;
@@ -201,6 +202,10 @@ class GameScene extends Phaser.Scene {
       D: Phaser.Input.Keyboard.Key;
     };
     
+    // Pause key - Space
+    this.spaceKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.spaceKey.on('down', this.togglePause, this);
+    
     // Touch input
     this.input.on('pointerdown', this.handleTouchStart, this);
     this.input.on('pointerup', this.handleTouchEnd, this);
@@ -257,6 +262,49 @@ class GameScene extends Phaser.Scene {
     
     // Update ghost AI
     this.updateGhosts(delta);
+  }
+  
+  private togglePause(): void {
+    if (this.gameState.gameStatus === 'playing') {
+      this.pauseGame();
+    } else if (this.gameState.gameStatus === 'paused') {
+      this.resumeGame();
+    }
+  }
+  
+  public pauseGame(): void {
+    if (this.gameState.gameStatus !== 'playing') return;
+    
+    this.gameState.gameStatus = 'paused';
+    
+    // Stop all movement
+    this.player?.setVelocity(0, 0);
+    this.ghosts.forEach(ghost => ghost.sprite?.setVelocity(0, 0));
+    
+    // Stop movement sound
+    this.isMoving = false;
+    
+    // Pause siren if playing
+    if (this.sirenSound && this.sirenSound.isPlaying) {
+      (this.sirenSound as Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound).pause();
+    }
+    
+    // Emit pause event
+    this.events.emit('gamePaused');
+  }
+  
+  public resumeGame(): void {
+    if (this.gameState.gameStatus !== 'paused') return;
+    
+    this.gameState.gameStatus = 'playing';
+    
+    // Resume siren if in power mode
+    if (this.gameState.powerMode && this.sirenSound) {
+      (this.sirenSound as Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound).resume();
+    }
+    
+    // Emit resume event
+    this.events.emit('gameResumed');
   }
 
   private handleInput(): void {

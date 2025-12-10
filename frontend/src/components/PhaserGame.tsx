@@ -4,6 +4,8 @@ import GameScene, { GameState } from '../scenes/GameScene';
 import GameUI from './GameUI';
 import GameOver from './GameOver';
 import HighScoreTable from './HighScoreTable';
+import StartScreen from './StartScreen';
+import PauseScreen from './PauseScreen';
 
 interface PhaserGameProps {
   onGameReady?: (game: Phaser.Game) => void;
@@ -20,9 +22,12 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ onGameReady }) => {
     powerModeTimer: 0,
     gameStatus: 'playing',
   });
+  const [showStartScreen, setShowStartScreen] = useState(true);
+  const [showPauseScreen, setShowPauseScreen] = useState(false);
   const [showGameOver, setShowGameOver] = useState(false);
   const [showHighScores, setShowHighScores] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
+  const [gameStarted, setGameStarted] = useState(false);
 
   const handleSubmitScore = useCallback(async (acronym: string) => {
     try {
@@ -51,9 +56,36 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ onGameReady }) => {
     }
   }, [finalScore]);
 
+  const handleStart = useCallback(() => {
+    setShowStartScreen(false);
+    setGameStarted(true);
+    
+    // Start the game if it was paused initially
+    if (gameRef.current) {
+      const scene = gameRef.current.scene.getScene('GameScene') as GameScene;
+      if (scene && scene.scene.isActive()) {
+        scene.resumeGame();
+      }
+    }
+  }, []);
+
+  const handleResume = useCallback(() => {
+    setShowPauseScreen(false);
+    
+    if (gameRef.current) {
+      const scene = gameRef.current.scene.getScene('GameScene') as GameScene;
+      if (scene) {
+        scene.resumeGame();
+      }
+    }
+  }, []);
+
   const handleRestart = useCallback(() => {
     setShowGameOver(false);
     setShowHighScores(false);
+    setShowPauseScreen(false);
+    setShowStartScreen(true);
+    setGameStarted(false);
     
     // Restart the game
     if (gameRef.current) {
@@ -96,11 +128,21 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ onGameReady }) => {
     const scene = gameRef.current.scene.getScene('GameScene') as GameScene;
     
     if (scene) {
+      // Pause the game initially until start screen is dismissed
+      scene.pauseGame();
+      
       // Update game state periodically
       const updateInterval = setInterval(() => {
         if (scene && scene.scene.isActive()) {
           const currentState = scene.getGameState();
           setGameState(currentState);
+          
+          // Update pause screen visibility based on game state
+          if (currentState.gameStatus === 'paused' && gameStarted && !showGameOver) {
+            setShowPauseScreen(true);
+          } else if (currentState.gameStatus === 'playing') {
+            setShowPauseScreen(false);
+          }
         }
       }, 100);
 
@@ -108,6 +150,18 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ onGameReady }) => {
       scene.events.on('gameOver', (score: number) => {
         setFinalScore(score);
         setShowGameOver(true);
+      });
+      
+      // Listen for pause event
+      scene.events.on('gamePaused', () => {
+        if (gameStarted && !showGameOver) {
+          setShowPauseScreen(true);
+        }
+      });
+      
+      // Listen for resume event
+      scene.events.on('gameResumed', () => {
+        setShowPauseScreen(false);
       });
 
       // Cleanup interval on unmount
@@ -128,7 +182,7 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ onGameReady }) => {
         gameRef.current = null;
       }
     };
-  }, [onGameReady]);
+  }, [onGameReady, gameStarted, showGameOver]);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -143,8 +197,16 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ onGameReady }) => {
         }}
       />
       
+      {/* Start Screen */}
+      {showStartScreen && <StartScreen onStart={handleStart} />}
+      
       {/* Game UI Overlay */}
-      <GameUI gameState={gameState} />
+      {!showStartScreen && <GameUI gameState={gameState} />}
+      
+      {/* Pause Screen */}
+      {showPauseScreen && !showGameOver && (
+        <PauseScreen onResume={handleResume} onRestart={handleRestart} />
+      )}
       
       {/* Game Over Screen */}
       {showGameOver && (
