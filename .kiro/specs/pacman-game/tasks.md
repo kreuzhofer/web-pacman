@@ -112,31 +112,31 @@
     - **Property 2: Wall Collision Prevention**
     - **Validates: Requirements 1.3**
 
-- [ ] 7. Implement player (Pacman) mechanics
-  - [ ] 7.1 Create player sprite and movement
+- [x] 7. Implement player (Pacman) mechanics
+  - [x] 7.1 Create player sprite and movement
     - Initialize Pacman sprite with physics body
     - Implement keyboard input handling (arrow keys, WASD)
     - Implement movement with direction queuing
     - Add smooth grid-based movement
     - _Requirements: 1.1, 1.5_
   
-  - [ ] 7.2 Add touch/swipe controls for mobile
+  - [x] 7.2 Add touch/swipe controls for mobile
     - Implement touch input detection
     - Calculate swipe direction from touch events
     - Queue movement commands from swipes
     - _Requirements: 1.2_
   
-  - [ ] 7.3 Write property test for input processing
+  - [x] 7.3 Write property test for input processing
     - **Property 1: Input Processing Consistency**
     - **Validates: Requirements 1.1, 1.2, 1.5**
   
-  - [ ] 7.4 Implement player-dot collision
+  - [x] 7.4 Implement player-dot collision
     - Detect collision between Pacman and dots
     - Remove collected dots from scene
     - Update score by 10 points per dot
     - _Requirements: 2.1_
   
-  - [ ] 7.5 Write property test for score calculation
+  - [x] 7.5 Write property test for score calculation
     - **Property 3: Score Calculation Accuracy**
     - **Validates: Requirements 2.1, 2.4**
 

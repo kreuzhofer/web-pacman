@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { SpriteAssets } from '../assets/SpriteAssets';
 import { MazeGenerator } from '../MazeGenerator';
-import { MazeData } from '../types';
+import { MazeData, Direction } from '../types';
 
 export interface GameState {
   score: number;
@@ -22,6 +22,22 @@ class GameScene extends Phaser.Scene {
   private powerPellets!: Phaser.Physics.Arcade.StaticGroup;
   private player!: Phaser.Physics.Arcade.Sprite;
   private readonly TILE_SIZE = 16;
+  private readonly PLAYER_SPEED = 80;
+  
+  // Player movement state
+  private currentDirection: Direction | null = null;
+  private nextDirection: Direction | null = null;
+  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private wasdKeys!: {
+    W: Phaser.Input.Keyboard.Key;
+    A: Phaser.Input.Keyboard.Key;
+    S: Phaser.Input.Keyboard.Key;
+    D: Phaser.Input.Keyboard.Key;
+  };
+  
+  // Touch input state
+  private touchStartX: number = 0;
+  private touchStartY: number = 0;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -132,12 +148,51 @@ class GameScene extends Phaser.Scene {
   }
 
   private setupInput(): void {
-    // Touch input - keyboard input will be added in future tasks
-    this.input.on('pointerdown', this.handleTouch, this);
+    // Keyboard input - arrow keys
+    this.cursors = this.input.keyboard!.createCursorKeys();
+    
+    // Keyboard input - WASD keys
+    this.wasdKeys = this.input.keyboard!.addKeys({
+      W: Phaser.Input.Keyboard.KeyCodes.W,
+      A: Phaser.Input.Keyboard.KeyCodes.A,
+      S: Phaser.Input.Keyboard.KeyCodes.S,
+      D: Phaser.Input.Keyboard.KeyCodes.D,
+    }) as {
+      W: Phaser.Input.Keyboard.Key;
+      A: Phaser.Input.Keyboard.Key;
+      S: Phaser.Input.Keyboard.Key;
+      D: Phaser.Input.Keyboard.Key;
+    };
+    
+    // Touch input
+    this.input.on('pointerdown', this.handleTouchStart, this);
+    this.input.on('pointerup', this.handleTouchEnd, this);
   }
 
-  private handleTouch(_pointer: Phaser.Input.Pointer): void {
-    // Touch handling will be implemented in future tasks
+  private handleTouchStart(pointer: Phaser.Input.Pointer): void {
+    this.touchStartX = pointer.x;
+    this.touchStartY = pointer.y;
+  }
+
+  private handleTouchEnd(pointer: Phaser.Input.Pointer): void {
+    const deltaX = pointer.x - this.touchStartX;
+    const deltaY = pointer.y - this.touchStartY;
+    
+    // Minimum swipe distance to register
+    const minSwipeDistance = 30;
+    
+    // Determine swipe direction based on larger delta
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      // Horizontal swipe
+      if (Math.abs(deltaX) > minSwipeDistance) {
+        this.nextDirection = deltaX > 0 ? 'right' : 'left';
+      }
+    } else {
+      // Vertical swipe
+      if (Math.abs(deltaY) > minSwipeDistance) {
+        this.nextDirection = deltaY > 0 ? 'down' : 'up';
+      }
+    }
   }
 
   update(_time: number, delta: number): void {
@@ -163,7 +218,127 @@ class GameScene extends Phaser.Scene {
   }
 
   private handleInput(): void {
-    // Input processing will be implemented in future tasks
+    if (!this.player) return;
+    
+    // Check keyboard input and queue direction
+    if (this.cursors.left.isDown || this.wasdKeys.A.isDown) {
+      this.nextDirection = 'left';
+    } else if (this.cursors.right.isDown || this.wasdKeys.D.isDown) {
+      this.nextDirection = 'right';
+    } else if (this.cursors.up.isDown || this.wasdKeys.W.isDown) {
+      this.nextDirection = 'up';
+    } else if (this.cursors.down.isDown || this.wasdKeys.S.isDown) {
+      this.nextDirection = 'down';
+    }
+    
+    // Try to change to queued direction if possible
+    if (this.nextDirection && this.canMove(this.nextDirection)) {
+      this.currentDirection = this.nextDirection;
+      this.nextDirection = null;
+    }
+    
+    // Move in current direction
+    if (this.currentDirection) {
+      if (this.canMove(this.currentDirection)) {
+        this.movePlayer(this.currentDirection);
+      } else {
+        // Stop if can't move in current direction
+        this.player.setVelocity(0, 0);
+      }
+    }
+  }
+  
+  private canMove(direction: Direction): boolean {
+    if (!this.player || !this.wallLayer) return false;
+    
+    // Get player's current tile position
+    const currentTileX = Math.floor(this.player.x / this.TILE_SIZE);
+    const currentTileY = Math.floor(this.player.y / this.TILE_SIZE);
+    
+    // Calculate next tile position based on direction
+    let nextTileX = currentTileX;
+    let nextTileY = currentTileY;
+    
+    switch (direction) {
+      case 'left':
+        nextTileX--;
+        break;
+      case 'right':
+        nextTileX++;
+        break;
+      case 'up':
+        nextTileY--;
+        break;
+      case 'down':
+        nextTileY++;
+        break;
+    }
+    
+    // Check if next tile is within bounds
+    if (
+      nextTileX < 0 ||
+      nextTileX >= this.currentMaze.width ||
+      nextTileY < 0 ||
+      nextTileY >= this.currentMaze.height
+    ) {
+      return false;
+    }
+    
+    // Check if next tile is a wall
+    const tile = this.wallLayer.getTileAt(nextTileX, nextTileY);
+    return !tile || tile.index === -1;
+  }
+  
+  private movePlayer(direction: Direction): void {
+    if (!this.player) return;
+    
+    // Set velocity based on direction
+    switch (direction) {
+      case 'left':
+        this.player.setVelocity(-this.PLAYER_SPEED, 0);
+        this.player.setFlipX(true);
+        this.player.play('pacman-left', true);
+        break;
+      case 'right':
+        this.player.setVelocity(this.PLAYER_SPEED, 0);
+        this.player.setFlipX(false);
+        this.player.play('pacman-right', true);
+        break;
+      case 'up':
+        this.player.setVelocity(0, -this.PLAYER_SPEED);
+        this.player.play('pacman-up', true);
+        break;
+      case 'down':
+        this.player.setVelocity(0, this.PLAYER_SPEED);
+        this.player.play('pacman-down', true);
+        break;
+    }
+    
+    // Align player to grid for smoother movement
+    this.alignToGrid();
+  }
+  
+  private alignToGrid(): void {
+    if (!this.player) return;
+    
+    const currentTileX = Math.floor(this.player.x / this.TILE_SIZE);
+    const currentTileY = Math.floor(this.player.y / this.TILE_SIZE);
+    
+    // If moving horizontally, align vertically to grid
+    if (this.currentDirection === 'left' || this.currentDirection === 'right') {
+      const targetY = currentTileY * this.TILE_SIZE + this.TILE_SIZE / 2;
+      if (Math.abs(this.player.y - targetY) > 1) {
+        this.player.y = Phaser.Math.Linear(this.player.y, targetY, 0.2);
+      }
+    }
+    
+    // If moving vertically, align horizontally to grid
+    if (this.currentDirection === 'up' || this.currentDirection === 'down') {
+      const targetX = currentTileX * this.TILE_SIZE + this.TILE_SIZE / 2;
+      if (Math.abs(this.player.x - targetX) > 1) {
+        this.player.x = Phaser.Math.Linear(this.player.x, targetX, 0.2);
+      }
+    }
   }
 
   private generateAndRenderMaze(): void {
@@ -275,6 +450,56 @@ class GameScene extends Phaser.Scene {
 
     // Set up collision between player and walls
     this.physics.add.collider(this.player, this.wallLayer);
+    
+    // Set up overlap detection for dots
+    this.physics.add.overlap(
+      this.player,
+      this.dots,
+      this.collectDot,
+      undefined,
+      this
+    );
+    
+    // Set up overlap detection for power pellets
+    this.physics.add.overlap(
+      this.player,
+      this.powerPellets,
+      this.collectPowerPellet,
+      undefined,
+      this
+    );
+  }
+  
+  private collectDot(
+    _player: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody,
+    dot: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody
+  ): void {
+    // Type guard to ensure we're working with a game object
+    if (dot instanceof Phaser.GameObjects.GameObject) {
+      // Remove the dot from the scene
+      dot.destroy();
+      
+      // Increase score by 10 points
+      this.gameState.score += 10;
+    }
+  }
+  
+  private collectPowerPellet(
+    _player: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody,
+    pellet: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody
+  ): void {
+    // Type guard to ensure we're working with a game object
+    if (pellet instanceof Phaser.GameObjects.GameObject) {
+      // Remove the power pellet from the scene
+      pellet.destroy();
+      
+      // Activate power mode for 10 seconds (10000 milliseconds)
+      this.gameState.powerMode = true;
+      this.gameState.powerModeTimer = 10000;
+      
+      // Increase score by 50 points (standard power pellet value)
+      this.gameState.score += 50;
+    }
   }
 
   private checkTunnelTeleportation(): void {
@@ -345,6 +570,18 @@ class GameScene extends Phaser.Scene {
 
   public getPlayer(): Phaser.Physics.Arcade.Sprite {
     return this.player;
+  }
+  
+  public getCurrentDirection(): Direction | null {
+    return this.currentDirection;
+  }
+  
+  public getNextDirection(): Direction | null {
+    return this.nextDirection;
+  }
+  
+  public setNextDirection(direction: Direction | null): void {
+    this.nextDirection = direction;
   }
 }
 
