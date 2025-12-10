@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { SpriteAssets } from '../assets/SpriteAssets';
 import { MazeGenerator } from '../MazeGenerator';
-import { MazeData, Direction } from '../types';
+import { MazeData, Direction, GhostState, GhostColor, GhostMode } from '../types';
 
 export interface GameState {
   score: number;
@@ -21,8 +21,14 @@ class GameScene extends Phaser.Scene {
   private dots!: Phaser.Physics.Arcade.StaticGroup;
   private powerPellets!: Phaser.Physics.Arcade.StaticGroup;
   private player!: Phaser.Physics.Arcade.Sprite;
+  private ghosts!: GhostState[];
   private readonly TILE_SIZE = 16;
   private readonly PLAYER_SPEED = 80;
+  private readonly GHOST_SPEED = 60;
+  private readonly GHOST_FRIGHTENED_SPEED = 40;
+  private scatterModeTimer: number = 0;
+  private readonly SCATTER_DURATION = 7000; // 7 seconds
+  private readonly CHASE_DURATION = 20000; // 20 seconds
   
   // Player movement state
   private currentDirection: Direction | null = null;
@@ -211,10 +217,15 @@ class GameScene extends Phaser.Scene {
     if (this.gameState.powerMode) {
       this.gameState.powerModeTimer -= delta;
       if (this.gameState.powerModeTimer <= 0) {
-        this.gameState.powerMode = false;
-        this.gameState.powerModeTimer = 0;
+        this.exitPowerMode();
       }
     }
+    
+    // Update scatter/chase mode timer
+    this.updateGhostModeTimer(delta);
+    
+    // Update ghost AI
+    this.updateGhosts(delta);
   }
 
   private handleInput(): void {
@@ -357,6 +368,9 @@ class GameScene extends Phaser.Scene {
 
     // Set up collision detection
     this.setupCollisions();
+    
+    // Initialize ghosts
+    this.initializeGhosts();
   }
 
   private createTilemap(): void {
@@ -470,6 +484,21 @@ class GameScene extends Phaser.Scene {
     );
   }
   
+  private setupGhostCollisions(): void {
+    // Set up overlap detection for ghosts (will be called after ghosts are initialized)
+    this.ghosts.forEach(ghost => {
+      if (ghost.sprite) {
+        this.physics.add.overlap(
+          this.player,
+          ghost.sprite,
+          () => this.handleGhostCollision(ghost),
+          undefined,
+          this
+        );
+      }
+    });
+  }
+  
   private collectDot(
     _player: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody,
     dot: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody
@@ -493,9 +522,8 @@ class GameScene extends Phaser.Scene {
       // Remove the power pellet from the scene
       pellet.destroy();
       
-      // Activate power mode for 10 seconds (10000 milliseconds)
-      this.gameState.powerMode = true;
-      this.gameState.powerModeTimer = 10000;
+      // Activate power mode
+      this.enterPowerMode();
       
       // Increase score by 50 points (standard power pellet value)
       this.gameState.score += 50;
@@ -520,6 +548,332 @@ class GameScene extends Phaser.Scene {
         break;
       }
     }
+  }
+  
+  private initializeGhosts(): void {
+    const colors: GhostColor[] = ['red', 'pink', 'cyan', 'orange'];
+    const spawnX = this.currentMaze.ghostSpawn.x * this.TILE_SIZE + this.TILE_SIZE / 2;
+    const spawnY = this.currentMaze.ghostSpawn.y * this.TILE_SIZE + this.TILE_SIZE / 2;
+    
+    // Define scatter targets (corners of the maze)
+    const scatterTargets = [
+      { x: this.currentMaze.width - 2, y: 0 }, // Red: top-right
+      { x: 2, y: 0 }, // Pink: top-left
+      { x: this.currentMaze.width - 2, y: this.currentMaze.height - 2 }, // Cyan: bottom-right
+      { x: 2, y: this.currentMaze.height - 2 }, // Orange: bottom-left
+    ];
+    
+    this.ghosts = colors.map((color, index) => {
+      const sprite = this.physics.add.sprite(spawnX, spawnY, 'ghosts', index * 3);
+      sprite.setCollideWorldBounds(true);
+      sprite.setSize(12, 12);
+      sprite.play(`ghost-${color}-normal`);
+      
+      return {
+        id: color,
+        sprite,
+        color,
+        mode: 'scatter' as GhostMode,
+        direction: 'left' as Direction,
+        speed: this.GHOST_SPEED,
+        scatterTarget: scatterTargets[index],
+      };
+    });
+    
+    // Start in scatter mode
+    this.scatterModeTimer = this.SCATTER_DURATION;
+    
+    // Set up ghost collisions
+    this.setupGhostCollisions();
+  }
+  
+  private updateGhostModeTimer(delta: number): void {
+    // Don't update mode timer during power mode
+    if (this.gameState.powerMode) return;
+    
+    this.scatterModeTimer -= delta;
+    
+    if (this.scatterModeTimer <= 0) {
+      // Toggle between scatter and chase modes
+      const currentMode = this.ghosts[0].mode;
+      const newMode: GhostMode = currentMode === 'scatter' ? 'chase' : 'scatter';
+      
+      this.ghosts.forEach(ghost => {
+        if (ghost.mode !== 'frightened' && ghost.mode !== 'eaten') {
+          ghost.mode = newMode;
+        }
+      });
+      
+      // Reset timer
+      this.scatterModeTimer = newMode === 'scatter' ? this.SCATTER_DURATION : this.CHASE_DURATION;
+    }
+  }
+  
+  private updateGhosts(_delta: number): void {
+    if (!this.player) return;
+    
+    this.ghosts.forEach(ghost => {
+      if (!ghost.sprite) return;
+      
+      // Get current tile position
+      const ghostTileX = Math.floor(ghost.sprite.x / this.TILE_SIZE);
+      const ghostTileY = Math.floor(ghost.sprite.y / this.TILE_SIZE);
+      
+      // Check if ghost is at intersection (can change direction)
+      const isAtIntersection = this.isAtIntersection(ghostTileX, ghostTileY);
+      
+      if (isAtIntersection) {
+        // Choose new direction based on AI mode
+        const newDirection = this.chooseGhostDirection(ghost, ghostTileX, ghostTileY);
+        if (newDirection) {
+          ghost.direction = newDirection;
+        }
+      }
+      
+      // Move ghost in current direction
+      this.moveGhost(ghost);
+    });
+  }
+  
+  private isAtIntersection(tileX: number, tileY: number): boolean {
+    // Count available directions
+    let availableDirections = 0;
+    const directions: Direction[] = ['up', 'down', 'left', 'right'];
+    
+    for (const dir of directions) {
+      if (this.canGhostMove(tileX, tileY, dir)) {
+        availableDirections++;
+      }
+    }
+    
+    // Intersection if more than 2 directions available (not just forward/backward)
+    return availableDirections > 2;
+  }
+  
+  private canGhostMove(tileX: number, tileY: number, direction: Direction): boolean {
+    let nextTileX = tileX;
+    let nextTileY = tileY;
+    
+    switch (direction) {
+      case 'left':
+        nextTileX--;
+        break;
+      case 'right':
+        nextTileX++;
+        break;
+      case 'up':
+        nextTileY--;
+        break;
+      case 'down':
+        nextTileY++;
+        break;
+    }
+    
+    // Check bounds
+    if (
+      nextTileX < 0 ||
+      nextTileX >= this.currentMaze.width ||
+      nextTileY < 0 ||
+      nextTileY >= this.currentMaze.height
+    ) {
+      return false;
+    }
+    
+    // Check if it's a wall
+    const tile = this.wallLayer.getTileAt(nextTileX, nextTileY);
+    return !tile || tile.index === -1;
+  }
+  
+  private chooseGhostDirection(ghost: GhostState, tileX: number, tileY: number): Direction | null {
+    const playerTileX = Math.floor(this.player.x / this.TILE_SIZE);
+    const playerTileY = Math.floor(this.player.y / this.TILE_SIZE);
+    
+    let targetX: number;
+    let targetY: number;
+    
+    // Determine target based on mode
+    if (ghost.mode === 'chase') {
+      // Chase mode: target player position
+      targetX = playerTileX;
+      targetY = playerTileY;
+    } else if (ghost.mode === 'scatter') {
+      // Scatter mode: target corner
+      targetX = ghost.scatterTarget.x;
+      targetY = ghost.scatterTarget.y;
+    } else if (ghost.mode === 'frightened') {
+      // Frightened mode: random movement
+      return this.getRandomDirection(tileX, tileY, ghost.direction);
+    } else {
+      // Eaten mode: return to spawn
+      targetX = this.currentMaze.ghostSpawn.x;
+      targetY = this.currentMaze.ghostSpawn.y;
+    }
+    
+    // Find best direction toward target (no backtracking)
+    const oppositeDirection = this.getOppositeDirection(ghost.direction);
+    const directions: Direction[] = ['up', 'down', 'left', 'right'];
+    const availableDirections = directions.filter(
+      dir => dir !== oppositeDirection && this.canGhostMove(tileX, tileY, dir)
+    );
+    
+    if (availableDirections.length === 0) {
+      // If no other option, allow backtracking
+      return this.getOppositeDirection(ghost.direction);
+    }
+    
+    // Choose direction that minimizes distance to target
+    let bestDirection: Direction | null = null;
+    let bestDistance = Infinity;
+    
+    for (const dir of availableDirections) {
+      const nextTileX = tileX + (dir === 'left' ? -1 : dir === 'right' ? 1 : 0);
+      const nextTileY = tileY + (dir === 'up' ? -1 : dir === 'down' ? 1 : 0);
+      
+      const distance = Math.sqrt(
+        Math.pow(nextTileX - targetX, 2) + Math.pow(nextTileY - targetY, 2)
+      );
+      
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestDirection = dir;
+      }
+    }
+    
+    return bestDirection;
+  }
+  
+  private getRandomDirection(tileX: number, tileY: number, currentDirection: Direction): Direction {
+    const oppositeDirection = this.getOppositeDirection(currentDirection);
+    const directions: Direction[] = ['up', 'down', 'left', 'right'];
+    const availableDirections = directions.filter(
+      dir => dir !== oppositeDirection && this.canGhostMove(tileX, tileY, dir)
+    );
+    
+    if (availableDirections.length === 0) {
+      return this.getOppositeDirection(currentDirection);
+    }
+    
+    return availableDirections[Math.floor(Math.random() * availableDirections.length)];
+  }
+  
+  private getOppositeDirection(direction: Direction): Direction {
+    switch (direction) {
+      case 'up': return 'down';
+      case 'down': return 'up';
+      case 'left': return 'right';
+      case 'right': return 'left';
+    }
+  }
+  
+  private moveGhost(ghost: GhostState): void {
+    if (!ghost.sprite) return;
+    
+    const speed = ghost.mode === 'frightened' ? this.GHOST_FRIGHTENED_SPEED : ghost.speed;
+    
+    switch (ghost.direction) {
+      case 'left':
+        ghost.sprite.setVelocity(-speed, 0);
+        break;
+      case 'right':
+        ghost.sprite.setVelocity(speed, 0);
+        break;
+      case 'up':
+        ghost.sprite.setVelocity(0, -speed);
+        break;
+      case 'down':
+        ghost.sprite.setVelocity(0, speed);
+        break;
+    }
+  }
+  
+  private enterPowerMode(): void {
+    this.gameState.powerMode = true;
+    this.gameState.powerModeTimer = 10000;
+    
+    // Change all ghosts to frightened mode
+    this.ghosts.forEach(ghost => {
+      if (ghost.mode !== 'eaten') {
+        ghost.mode = 'frightened';
+        ghost.sprite?.play(`ghost-${ghost.color}-frightened`);
+      }
+    });
+  }
+  
+  private exitPowerMode(): void {
+    this.gameState.powerMode = false;
+    this.gameState.powerModeTimer = 0;
+    
+    // Return ghosts to normal mode
+    this.ghosts.forEach(ghost => {
+      if (ghost.mode === 'frightened') {
+        ghost.mode = 'chase';
+        ghost.sprite?.play(`ghost-${ghost.color}-normal`);
+      }
+    });
+  }
+  
+  private respawnGhost(ghost: GhostState): void {
+    if (!ghost.sprite) return;
+    
+    const spawnX = this.currentMaze.ghostSpawn.x * this.TILE_SIZE + this.TILE_SIZE / 2;
+    const spawnY = this.currentMaze.ghostSpawn.y * this.TILE_SIZE + this.TILE_SIZE / 2;
+    
+    ghost.sprite.setPosition(spawnX, spawnY);
+    ghost.mode = 'scatter';
+    ghost.direction = 'left';
+    ghost.sprite.play(`ghost-${ghost.color}-normal`);
+  }
+  
+  private handleGhostCollision(ghost: GhostState): void {
+    if (this.gameState.gameStatus !== 'playing') return;
+    
+    if (this.gameState.powerMode && ghost.mode === 'frightened') {
+      // Player eats ghost
+      this.eatGhost(ghost);
+    } else if (ghost.mode !== 'frightened' && ghost.mode !== 'eaten') {
+      // Ghost catches player
+      this.loseLife();
+    }
+  }
+  
+  private eatGhost(ghost: GhostState): void {
+    // Award bonus points (200, 400, 800, 1600 for consecutive ghosts)
+    // For simplicity, we'll award 200 points per ghost
+    this.gameState.score += 200;
+    
+    // Change ghost to eaten mode
+    ghost.mode = 'eaten';
+    ghost.sprite?.play(`ghost-${ghost.color}-eaten`);
+    
+    // Respawn ghost after a delay
+    this.time.delayedCall(3000, () => {
+      this.respawnGhost(ghost);
+    });
+  }
+  
+  private loseLife(): void {
+    // Decrease lives
+    this.gameState.lives -= 1;
+    
+    // Check for game over
+    if (this.gameState.lives <= 0) {
+      this.gameOver();
+    } else {
+      // Reset positions
+      this.resetPositions();
+    }
+  }
+  
+  private gameOver(): void {
+    this.gameState.gameStatus = 'gameOver';
+    this.gameState.lives = 0;
+    
+    // Stop all sprites
+    this.player?.setVelocity(0, 0);
+    this.ghosts.forEach(ghost => ghost.sprite?.setVelocity(0, 0));
+    
+    // Emit game over event (will be used by React UI in future tasks)
+    this.events.emit('gameOver', this.gameState.score);
   }
 
   public getGameState(): GameState {
@@ -582,6 +936,25 @@ class GameScene extends Phaser.Scene {
   
   public setNextDirection(direction: Direction | null): void {
     this.nextDirection = direction;
+  }
+  
+  public getGhosts(): GhostState[] {
+    return this.ghosts;
+  }
+  
+  public resetPositions(): void {
+    // Reset player position
+    if (this.player) {
+      const spawnX = this.currentMaze.playerSpawn.x * this.TILE_SIZE + this.TILE_SIZE / 2;
+      const spawnY = this.currentMaze.playerSpawn.y * this.TILE_SIZE + this.TILE_SIZE / 2;
+      this.player.setPosition(spawnX, spawnY);
+      this.player.setVelocity(0, 0);
+      this.currentDirection = null;
+      this.nextDirection = null;
+    }
+    
+    // Reset ghost positions
+    this.ghosts.forEach(ghost => this.respawnGhost(ghost));
   }
 }
 

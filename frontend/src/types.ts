@@ -22,3 +22,16 @@ export interface MazeData {
 }
 
 export type Direction = 'up' | 'down' | 'left' | 'right';
+
+export type GhostColor = 'red' | 'pink' | 'cyan' | 'orange';
+export type GhostMode = 'chase' | 'scatter' | 'frightened' | 'eaten';
+
+export interface GhostState {
+  id: string;
+  sprite: Phaser.Physics.Arcade.Sprite | null;
+  color: GhostColor;
+  mode: GhostMode;
+  direction: Direction;
+  speed: number;
+  scatterTarget: Position;
+}

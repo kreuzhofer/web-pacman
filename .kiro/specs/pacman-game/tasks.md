@@ -140,21 +140,21 @@
     - **Property 3: Score Calculation Accuracy**
     - **Validates: Requirements 2.1, 2.4**
 
-- [ ] 8. Implement ghost AI and behavior
-  - [ ] 8.1 Create ghost sprites and basic movement
+- [x] 8. Implement ghost AI and behavior
+  - [x] 8.1 Create ghost sprites and basic movement
     - Initialize 4 ghost sprites with different colors
     - Implement basic pathfinding AI (chase player)
     - Add scatter mode behavior
     - Implement ghost spawn point and respawn logic
     - _Requirements: 2.3, 2.4_
   
-  - [ ] 8.2 Implement ghost collision with player
+  - [x] 8.2 Implement ghost collision with player
     - Detect collision between Pacman and ghosts
     - Handle normal mode collision (lose life, reset positions)
     - Implement life counter and game over condition
     - _Requirements: 2.3, 7.2, 7.3_
   
-  - [ ] 8.3 Write property test for life management
+  - [x] 8.3 Write property test for life management
     - **Property 5: Life Management Accuracy**
     - **Validates: Requirements 2.3, 7.2, 7.3**
 
