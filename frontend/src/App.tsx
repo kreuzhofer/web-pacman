@@ -1,10 +1,10 @@
 import './App.css';
+import PhaserGame from './components/PhaserGame';
 
 function App() {
   return (
     <div className="App">
-      <h1>Pacman Game</h1>
-      <p>Game will be initialized here</p>
+      <PhaserGame />
     </div>
   );
 }
