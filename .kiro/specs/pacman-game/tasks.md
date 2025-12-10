@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [ ] 1. Set up project structure and dependencies
+- [x] 1. Set up project structure and dependencies
   - Create monorepo structure with frontend and backend directories
   - Initialize React + TypeScript project with Vite
   - Install Phaser 3, React, TypeScript, and development dependencies
@@ -10,29 +10,29 @@
   - Create Docker Compose configuration for development
   - _Requirements: 8.1, 8.2, 8.3_
 
-- [ ] 2. Set up backend API and database
-  - [ ] 2.1 Configure Prisma schema and database connection
+- [x] 2. Set up backend API and database
+  - [x] 2.1 Configure Prisma schema and database connection
     - Define HighScore model in Prisma schema
     - Configure PostgreSQL connection string
     - Create initial migration
     - _Requirements: 9.1, 9.4_
   
-  - [ ] 2.2 Implement high score API endpoints
+  - [x] 2.2 Implement high score API endpoints
     - Create GET /api/highscores endpoint to retrieve top 10 scores
     - Create POST /api/highscores endpoint to submit new scores
     - Implement input validation for acronym (3 letters, alphabetic only)
     - Add error handling and proper HTTP status codes
     - _Requirements: 6.2, 6.3, 6.4, 6.5, 9.1, 9.2, 9.3_
   
-  - [ ] 2.3 Write property test for high score persistence
+  - [x] 2.3 Write property test for high score persistence
     - **Property 7: High Score Persistence Round Trip**
     - **Validates: Requirements 6.2, 6.3**
   
-  - [ ] 2.4 Write property test for concurrent score submissions
+  - [x] 2.4 Write property test for concurrent score submissions
     - **Property 15: Concurrent Request Safety**
     - **Validates: Requirements 9.5**
   
-  - [ ] 2.5 Write unit tests for API endpoints
+  - [x] 2.5 Write unit tests for API endpoints
     - Test GET endpoint returns sorted scores
     - Test POST endpoint validates acronym format
     - Test error handling for invalid inputs
