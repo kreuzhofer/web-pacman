@@ -44,32 +44,54 @@
   padding: 12px 30px;
   cursor: pointer;
   transition: all 0.2s;
+  box-shadow: 
+    0 4px 0 #000088,
+    0 0 10px rgba(0, 0, 255, 0.5);
+  user-select: none;
 }
 
 .pause-button:hover {
   background-color: #0ff;
   color: #000;
-  transform: scale(1.05);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 6px 0 #008888,
+    0 0 20px rgba(0, 255, 255, 0.7);
 }
 
 .pause-button:active {
-  transform: scale(0.95);
+  transform: translateY(2px);
+  box-shadow: 
+    0 2px 0 #000088,
+    0 0 5px rgba(0, 0, 255, 0.3);
 }
 
 .resume-button {
   background-color: #0f0;
+  box-shadow: 
+    0 4px 0 #008800,
+    0 0 10px rgba(0, 255, 0, 0.5);
 }
 
 .resume-button:hover {
   background-color: #0ff;
+  box-shadow: 
+    0 6px 0 #008888,
+    0 0 20px rgba(0, 255, 255, 0.7);
 }
 
 .restart-button {
   background-color: #f00;
+  box-shadow: 
+    0 4px 0 #880000,
+    0 0 10px rgba(255, 0, 0, 0.5);
 }
 
 .restart-button:hover {
   background-color: #ff0;
+  box-shadow: 
+    0 6px 0 #888800,
+    0 0 20px rgba(255, 255, 0, 0.7);
 }
 
 .pause-hint {
@@ -80,4 +102,83 @@
   font-family: 'Press Start 2P', 'Courier New', monospace;
   font-size: 10px;
   color: #888;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .pause-screen-modal {
+    padding: 30px 20px;
+    min-width: 250px;
+  }
+  
+  .pause-title {
+    font-size: 28px;
+    margin-bottom: 20px;
+  }
+  
+  .pause-button {
+    font-size: 12px;
+    padding: 10px 25px;
+  }
+  
+  .pause-hint p {
+    font-size: 8px;
+  }
+}
+
+/* Small mobile devices */
+@media (max-width: 480px) {
+  .pause-screen-modal {
+    padding: 20px 15px;
+    min-width: 200px;
+  }
+  
+  .pause-title {
+    font-size: 22px;
+    margin-bottom: 15px;
+  }
+  
+  .pause-buttons {
+    gap: 12px;
+  }
+  
+  .pause-button {
+    font-size: 10px;
+    padding: 10px 20px;
+  }
+  
+  .pause-hint p {
+    font-size: 7px;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (orientation: landscape) and (max-height: 600px) {
+  .pause-screen-modal {
+    padding: 15px;
+    min-width: auto;
+  }
+  
+  .pause-title {
+    font-size: 20px;
+    margin-bottom: 12px;
+  }
+  
+  .pause-buttons {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  
+  .pause-button {
+    font-size: 9px;
+    padding: 8px 18px;
+  }
+  
+  .pause-hint {
+    margin-top: 12px;
+  }
+  
+  .pause-hint p {
+    font-size: 6px;
+  }
 }

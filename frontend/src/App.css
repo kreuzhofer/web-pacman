@@ -1,3 +1,4 @@
+/* Retro Pacman Game Styling */
 .App {
   width: 100vw;
   height: 100vh;
@@ -6,6 +7,150 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: #000000;
+  background: radial-gradient(ellipse at center, #1a1a1a 0%, #000000 100%);
   overflow: hidden;
+  position: relative;
+}
+
+/* Optional CRT Screen Effect */
+.App::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.15),
+    rgba(0, 0, 0, 0.15) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0.3;
+}
+
+/* CRT Scanline Animation */
+.App::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    to bottom,
+    transparent 50%,
+    rgba(0, 0, 0, 0.1) 50%
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 1001;
+  animation: scanline 8s linear infinite;
+  opacity: 0.1;
+}
+
+@keyframes scanline {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+/* Pixel-perfect rendering for game canvas */
+.App canvas {
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  border: 3px solid #333;
+  box-shadow: 
+    0 0 20px rgba(0, 0, 255, 0.3),
+    0 0 40px rgba(0, 0, 255, 0.2),
+    inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Retro glow effect for interactive elements */
+.retro-glow {
+  text-shadow: 
+    0 0 5px currentColor,
+    0 0 10px currentColor,
+    0 0 15px currentColor;
+}
+
+/* Responsive Design Optimizations */
+
+/* Tablet and smaller screens */
+@media (max-width: 1024px) {
+  .App canvas {
+    border-width: 2px;
+  }
+}
+
+/* Mobile devices */
+@media (max-width: 768px) {
+  .App {
+    padding: 0;
+  }
+  
+  .App canvas {
+    border-width: 1px;
+    box-shadow: 
+      0 0 10px rgba(0, 0, 255, 0.3),
+      0 0 20px rgba(0, 0, 255, 0.2);
+  }
+  
+  /* Reduce CRT effect intensity on mobile */
+  .App::before {
+    opacity: 0.15;
+  }
+  
+  .App::after {
+    opacity: 0.05;
+  }
+}
+
+/* Small mobile devices */
+@media (max-width: 480px) {
+  .App canvas {
+    border-width: 1px;
+  }
+}
+
+/* Portrait orientation optimization */
+@media (orientation: portrait) and (max-width: 768px) {
+  .App {
+    align-items: flex-start;
+    padding-top: 20px;
+  }
+}
+
+/* Landscape orientation optimization */
+@media (orientation: landscape) and (max-height: 600px) {
+  .App {
+    padding: 10px 0;
+  }
+  
+  .App canvas {
+    max-height: 90vh;
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  /* Larger touch targets for mobile */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Disable hover effects on touch devices */
+  .App::before,
+  .App::after {
+    opacity: 0.1;
+  }
 }

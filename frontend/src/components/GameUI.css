@@ -73,24 +73,75 @@
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .game-ui-top {
-    padding: 12px 16px;
+    padding: 10px 12px;
   }
   
   .label {
-    font-size: 8px;
+    font-size: 7px;
   }
   
   .value {
-    font-size: 12px;
+    font-size: 11px;
   }
   
   .lives-display {
-    bottom: 12px;
-    left: 16px;
-    padding: 6px 12px;
+    bottom: 10px;
+    left: 12px;
+    padding: 6px 10px;
   }
   
   .life-icon {
-    font-size: 14px;
+    font-size: 12px;
+  }
+}
+
+/* Small mobile devices */
+@media (max-width: 480px) {
+  .game-ui-top {
+    padding: 8px 10px;
+  }
+  
+  .label {
+    font-size: 6px;
+  }
+  
+  .value {
+    font-size: 10px;
+  }
+  
+  .lives-display {
+    bottom: 8px;
+    left: 10px;
+    padding: 4px 8px;
+  }
+  
+  .life-icon {
+    font-size: 10px;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (orientation: landscape) and (max-height: 600px) {
+  .game-ui-top {
+    padding: 6px 10px;
+  }
+  
+  .label {
+    font-size: 6px;
+  }
+  
+  .value {
+    font-size: 9px;
+  }
+  
+  .lives-display {
+    bottom: 6px;
+    left: 10px;
+    padding: 4px 8px;
+    gap: 6px;
+  }
+  
+  .life-icon {
+    font-size: 10px;
   }
 }

@@ -105,37 +105,118 @@
   font-size: 12px;
   padding: 12px 24px;
   background: #00ffff;
-  border: none;
+  border: 3px solid #ffffff;
   color: #000000;
   cursor: pointer;
   width: 100%;
   transition: all 0.2s;
+  box-shadow: 
+    0 4px 0 #008888,
+    0 0 10px rgba(0, 255, 255, 0.5);
+  user-select: none;
 }
 
 .close-button:hover {
   background: #ffffff;
-  transform: scale(1.02);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 6px 0 #aaaaaa,
+    0 0 20px rgba(255, 255, 255, 0.7);
+}
+
+.close-button:active {
+  transform: translateY(2px);
+  box-shadow: 
+    0 2px 0 #008888,
+    0 0 5px rgba(0, 255, 255, 0.3);
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .highscore-modal {
-    padding: 30px 20px;
+    padding: 25px 15px;
+    max-width: 95%;
   }
   
   .highscore-title {
-    font-size: 16px;
+    font-size: 14px;
+    margin-bottom: 20px;
   }
   
   .table-header,
   .table-row {
-    grid-template-columns: 50px 1fr 100px;
-    gap: 12px;
+    grid-template-columns: 45px 1fr 90px;
+    gap: 10px;
     font-size: 8px;
+    padding: 10px 0;
+  }
+  
+  .table-body {
+    max-height: 300px;
   }
   
   .close-button {
     font-size: 10px;
     padding: 10px 20px;
+  }
+}
+
+/* Small mobile devices */
+@media (max-width: 480px) {
+  .highscore-modal {
+    padding: 20px 12px;
+  }
+  
+  .highscore-title {
+    font-size: 12px;
+    margin-bottom: 15px;
+  }
+  
+  .table-header,
+  .table-row {
+    grid-template-columns: 40px 1fr 80px;
+    gap: 8px;
+    font-size: 7px;
+    padding: 8px 0;
+  }
+  
+  .table-body {
+    max-height: 250px;
+  }
+  
+  .close-button {
+    font-size: 9px;
+    padding: 10px 18px;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (orientation: landscape) and (max-height: 600px) {
+  .highscore-modal {
+    padding: 15px;
+    max-width: 80%;
+    max-height: 85vh;
+  }
+  
+  .highscore-title {
+    font-size: 12px;
+    margin-bottom: 12px;
+  }
+  
+  .table-header,
+  .table-row {
+    grid-template-columns: 40px 1fr 80px;
+    gap: 8px;
+    font-size: 7px;
+    padding: 6px 0;
+  }
+  
+  .table-body {
+    max-height: 200px;
+  }
+  
+  .close-button {
+    font-size: 8px;
+    padding: 8px 16px;
   }
 }

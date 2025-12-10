@@ -1,28 +1,77 @@
+/* Retro Pixel Art Global Styles */
 :root {
-  font-family: 'Press Start 2P', monospace, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  line-height: 1.6;
   font-weight: 400;
 
   color-scheme: dark;
-  color: rgba(255, 255, 255, 0.87);
+  color: rgba(255, 255, 255, 0.95);
   background-color: #000000;
 
+  /* Disable font smoothing for crisp pixel text */
   font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: none;
   -moz-osx-font-smoothing: grayscale;
+  
+  /* Pixel-perfect rendering */
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  padding: 0;
   display: flex;
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  overflow: hidden;
+  background: #000000;
 }
 
 #root {
   width: 100%;
+  height: 100vh;
   margin: 0 auto;
   text-align: center;
+}
+
+/* Ensure all buttons have retro styling */
+button {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:active {
+  transform: scale(0.95);
+}
+
+/* Disable text selection for game elements */
+.game-element {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Retro input styling */
+input {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  outline: none;
+}
+
+/* Smooth transitions for retro feel */
+* {
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }

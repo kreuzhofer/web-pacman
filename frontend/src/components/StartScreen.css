@@ -17,7 +17,21 @@
   padding: 40px;
   text-align: center;
   max-width: 500px;
-  box-shadow: 0 0 20px rgba(0, 0, 255, 0.5);
+  box-shadow: 
+    0 0 20px rgba(0, 0, 255, 0.5),
+    inset 0 0 20px rgba(0, 0, 255, 0.1);
+  position: relative;
+}
+
+.start-screen-modal::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border: 2px solid rgba(0, 0, 255, 0.3);
+  pointer-events: none;
 }
 
 .game-title {
@@ -25,7 +39,23 @@
   font-size: 48px;
   color: #ff0;
   margin-bottom: 30px;
-  text-shadow: 3px 3px 0 #f00;
+  text-shadow: 
+    3px 3px 0 #f00,
+    0 0 10px #ff0,
+    0 0 20px #ff0,
+    0 0 30px #ff0;
+  animation: titlePulse 2s ease-in-out infinite;
+}
+
+@keyframes titlePulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.02);
+    filter: brightness(1.2);
+  }
 }
 
 .instructions {
@@ -71,16 +101,27 @@
   cursor: pointer;
   transition: all 0.2s;
   margin-bottom: 20px;
+  box-shadow: 
+    0 4px 0 #800,
+    0 0 10px rgba(255, 0, 0, 0.5);
+  position: relative;
+  user-select: none;
 }
 
 .start-button:hover {
   background-color: #ff0;
   color: #000;
-  transform: scale(1.05);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 6px 0 #880,
+    0 0 20px rgba(255, 255, 0, 0.7);
 }
 
 .start-button:active {
-  transform: scale(0.95);
+  transform: translateY(2px);
+  box-shadow: 
+    0 2px 0 #800,
+    0 0 5px rgba(255, 0, 0, 0.3);
 }
 
 .controls-hint {
@@ -91,4 +132,111 @@
   font-family: 'Press Start 2P', 'Courier New', monospace;
   font-size: 10px;
   color: #888;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .start-screen-modal {
+    padding: 30px 20px;
+    max-width: 90%;
+  }
+  
+  .game-title {
+    font-size: 32px;
+    margin-bottom: 20px;
+  }
+  
+  .instructions h2 {
+    font-size: 14px;
+    margin-bottom: 15px;
+  }
+  
+  .instructions li {
+    font-size: 10px;
+    margin-bottom: 10px;
+  }
+  
+  .start-button {
+    font-size: 14px;
+    padding: 12px 30px;
+  }
+  
+  .controls-hint p {
+    font-size: 8px;
+  }
+}
+
+/* Small mobile devices */
+@media (max-width: 480px) {
+  .start-screen-modal {
+    padding: 20px 15px;
+    max-width: 95%;
+  }
+  
+  .game-title {
+    font-size: 24px;
+    margin-bottom: 15px;
+  }
+  
+  .instructions h2 {
+    font-size: 12px;
+    margin-bottom: 12px;
+  }
+  
+  .instructions li {
+    font-size: 8px;
+    margin-bottom: 8px;
+  }
+  
+  .start-button {
+    font-size: 12px;
+    padding: 10px 25px;
+  }
+  
+  .controls-hint p {
+    font-size: 7px;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (orientation: landscape) and (max-height: 600px) {
+  .start-screen-modal {
+    padding: 15px;
+    max-width: 80%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  
+  .game-title {
+    font-size: 20px;
+    margin-bottom: 10px;
+  }
+  
+  .instructions {
+    margin-bottom: 15px;
+  }
+  
+  .instructions h2 {
+    font-size: 10px;
+    margin-bottom: 8px;
+  }
+  
+  .instructions li {
+    font-size: 7px;
+    margin-bottom: 6px;
+  }
+  
+  .start-button {
+    font-size: 10px;
+    padding: 8px 20px;
+    margin-bottom: 10px;
+  }
+  
+  .controls-hint {
+    margin-top: 10px;
+  }
+  
+  .controls-hint p {
+    font-size: 6px;
+  }
 }
