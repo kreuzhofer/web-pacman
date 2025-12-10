@@ -158,22 +158,22 @@
     - **Property 5: Life Management Accuracy**
     - **Validates: Requirements 2.3, 7.2, 7.3**
 
-- [ ] 9. Implement power pellet mechanics
-  - [ ] 9.1 Add power pellet collision and power mode
+- [x] 9. Implement power pellet mechanics
+  - [x] 9.1 Add power pellet collision and power mode
     - Detect collision with power pellets
     - Activate power mode for 10 seconds
     - Change ghost sprites to frightened state
     - Add power mode timer
     - _Requirements: 2.2_
   
-  - [ ] 9.2 Implement vulnerable ghost mechanics
+  - [x] 9.2 Implement vulnerable ghost mechanics
     - Allow eating ghosts in power mode
     - Award bonus points for eaten ghosts
     - Respawn eaten ghosts at center
     - Return to normal mode after timer expires
     - _Requirements: 2.4_
   
-  - [ ] 9.3 Write property test for power mode
+  - [x] 9.3 Write property test for power mode
     - **Property 4: Power Mode Consistency**
     - **Validates: Requirements 2.2**
 
