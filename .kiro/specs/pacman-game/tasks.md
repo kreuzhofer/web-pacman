@@ -94,21 +94,21 @@
     - **Property 9: Animation Frame Consistency**
     - **Validates: Requirements 4.4**
 
-- [ ] 6. Build maze rendering system
-  - [ ] 6.1 Integrate maze generator with Phaser
+- [x] 6. Build maze rendering system
+  - [x] 6.1 Integrate maze generator with Phaser
     - Convert maze data to Phaser tilemap
     - Render walls using tile sprites
     - Place dots and power pellets as sprites
     - Position tunnels correctly
     - _Requirements: 3.1, 3.2_
   
-  - [ ] 6.2 Implement maze collision detection
+  - [x] 6.2 Implement maze collision detection
     - Set up tilemap collision layers
     - Configure arcade physics for wall collisions
     - Implement tunnel teleportation logic
     - _Requirements: 1.3_
   
-  - [ ] 6.3 Write property test for wall collision
+  - [x] 6.3 Write property test for wall collision
     - **Property 2: Wall Collision Prevention**
     - **Validates: Requirements 1.3**
 
