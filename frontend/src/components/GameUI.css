@@ -56,9 +56,14 @@
 }
 
 .life-icon {
-  font-size: 16px;
-  color: #ffff00;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   animation: pulse 2s ease-in-out infinite;
+}
+
+.life-icon svg {
+  filter: drop-shadow(1px 1px 0px #000000);
 }
 
 @keyframes pulse {

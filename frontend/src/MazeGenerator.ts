@@ -6,21 +6,19 @@ export class MazeGenerator {
 
   /**
    * Generate a procedural maze for the given level
+   * Creates a classic Pac-Man style maze with 1-tile-wide corridors
    */
-  generateMaze(level: number): MazeData {
+  generateMaze(_level: number): MazeData {
     const width = this.baseWidth;
     const height = this.baseHeight;
 
-    // Initialize empty maze
+    // Initialize maze - start with all walls
     const walls: boolean[][] = Array(height)
       .fill(null)
-      .map(() => Array(width).fill(false));
+      .map(() => Array(width).fill(true));
 
-    // Create border walls
-    this.createBorderWalls(walls, width, height);
-
-    // Generate internal maze structure using recursive division
-    this.generateMazeStructure(walls, 1, 1, width - 2, height - 2, level);
+    // Create the classic Pac-Man style maze layout
+    this.createClassicMazeLayout(walls, width, height);
 
     // Create tunnels on opposite sides
     const tunnels = this.createTunnels(walls, width, height);
@@ -32,12 +30,6 @@ export class MazeGenerator {
     // Ensure spawn points are not walls
     walls[playerSpawn.y][playerSpawn.x] = false;
     walls[ghostSpawn.y][ghostSpawn.x] = false;
-
-    // Validate maze connectivity
-    if (!this.validateMaze(walls, playerSpawn, width, height)) {
-      // If validation fails, create a simpler maze
-      return this.generateSimpleMaze(level);
-    }
 
     // Place dots and power pellets
     const dots = this.placeDots(walls, width, height, playerSpawn, ghostSpawn);
@@ -56,6 +48,149 @@ export class MazeGenerator {
   }
 
   /**
+   * Create a classic Pac-Man style maze with proper 1-tile corridors
+   */
+  private createClassicMazeLayout(walls: boolean[][], width: number, height: number): void {
+    // Create horizontal corridors (rows where player can move)
+    // Corridors at specific y positions
+    const corridorRows = [1, 5, 9, 11, 15, 19, 23, 25, 29];
+    
+    for (const y of corridorRows) {
+      if (y < height) {
+        for (let x = 1; x < width - 1; x++) {
+          walls[y][x] = false;
+        }
+      }
+    }
+    
+    // Create vertical corridors (columns where player can move)
+    const corridorCols = [1, 6, 12, 15, 21, 26];
+    
+    for (const x of corridorCols) {
+      if (x < width) {
+        for (let y = 1; y < height - 1; y++) {
+          walls[y][x] = false;
+        }
+      }
+    }
+    
+    // Add some additional vertical connections for variety
+    // Left side vertical corridors
+    for (let y = 1; y < 10; y++) {
+      walls[y][1] = false;
+      walls[y][6] = false;
+    }
+    
+    // Right side vertical corridors  
+    for (let y = 1; y < 10; y++) {
+      walls[y][width - 2] = false;
+      walls[y][width - 7] = false;
+    }
+    
+    // Middle vertical corridors
+    for (let y = 5; y < height - 5; y++) {
+      walls[y][Math.floor(width / 2)] = false;
+      walls[y][Math.floor(width / 2) - 1] = false;
+    }
+    
+    // Create ghost house area in the center
+    const ghostHouseY = Math.floor(height / 2);
+    const ghostHouseX = Math.floor(width / 2);
+    
+    // Clear area around ghost spawn - extend to connect to corridors at y=11 and y=19
+    for (let dy = -4; dy <= 4; dy++) {
+      for (let dx = -3; dx <= 3; dx++) {
+        const y = ghostHouseY + dy;
+        const x = ghostHouseX + dx;
+        if (y > 0 && y < height - 1 && x > 0 && x < width - 1) {
+          walls[y][x] = false;
+        }
+      }
+    }
+    
+    // Ensure vertical exit paths from ghost house connect to horizontal corridors
+    // Connect to corridor at y=11 (above ghost house)
+    for (let y = 11; y <= ghostHouseY; y++) {
+      walls[y][ghostHouseX] = false;
+      walls[y][ghostHouseX - 1] = false;
+    }
+    // Connect to corridor at y=19 (below ghost house)
+    for (let y = ghostHouseY; y <= 19; y++) {
+      walls[y][ghostHouseX] = false;
+      walls[y][ghostHouseX - 1] = false;
+    }
+    
+    // Create bottom area for player spawn
+    const playerAreaY = height - 2;
+    for (let x = 1; x < width - 1; x++) {
+      walls[playerAreaY][x] = false;
+      walls[playerAreaY - 1][x] = false;
+    }
+    
+    // Add some wall blocks to create the maze structure
+    this.addWallBlocks(walls, width, height);
+  }
+  
+  /**
+   * Add wall blocks to create maze structure within corridors
+   */
+  private addWallBlocks(walls: boolean[][], width: number, height: number): void {
+    // Add rectangular wall blocks in strategic positions
+    // These create the classic Pac-Man maze feel
+    
+    // Top-left block
+    this.addWallBlock(walls, 3, 2, 4, 3, width, height);
+    
+    // Top-right block
+    this.addWallBlock(walls, width - 7, 2, 4, 3, width, height);
+    
+    // Top-center blocks
+    this.addWallBlock(walls, 8, 2, 3, 3, width, height);
+    this.addWallBlock(walls, width - 11, 2, 3, 3, width, height);
+    
+    // Middle-left blocks
+    this.addWallBlock(walls, 3, 7, 4, 2, width, height);
+    this.addWallBlock(walls, 3, 12, 4, 3, width, height);
+    
+    // Middle-right blocks
+    this.addWallBlock(walls, width - 7, 7, 4, 2, width, height);
+    this.addWallBlock(walls, width - 7, 12, 4, 3, width, height);
+    
+    // Bottom blocks
+    this.addWallBlock(walls, 3, 20, 4, 3, width, height);
+    this.addWallBlock(walls, width - 7, 20, 4, 3, width, height);
+    this.addWallBlock(walls, 8, 20, 3, 3, width, height);
+    this.addWallBlock(walls, width - 11, 20, 3, 3, width, height);
+    
+    // Lower blocks
+    this.addWallBlock(walls, 3, 26, 4, 2, width, height);
+    this.addWallBlock(walls, width - 7, 26, 4, 2, width, height);
+  }
+  
+  /**
+   * Add a rectangular wall block
+   */
+  private addWallBlock(
+    walls: boolean[][],
+    startX: number,
+    startY: number,
+    blockWidth: number,
+    blockHeight: number,
+    mazeWidth: number,
+    mazeHeight: number
+  ): void {
+    for (let dy = 0; dy < blockHeight; dy++) {
+      for (let dx = 0; dx < blockWidth; dx++) {
+        const x = startX + dx;
+        const y = startY + dy;
+        if (x > 0 && x < mazeWidth - 1 && y > 0 && y < mazeHeight - 1) {
+          walls[y][x] = true;
+        }
+      }
+    }
+  }
+
+  /**
    * Validate that all areas of the maze are reachable from spawn point
    */
   validateMaze(walls: boolean[][], spawn: Position, width: number, height: number): boolean {
@@ -70,12 +205,11 @@ export class MazeGenerator {
     while (queue.length > 0) {
       const current = queue.shift()!;
 
-      // Check all four directions
       const directions = [
-        { x: 0, y: -1 }, // up
-        { x: 0, y: 1 },  // down
-        { x: -1, y: 0 }, // left
-        { x: 1, y: 0 },  // right
+        { x: 0, y: -1 },
+        { x: 0, y: 1 },
+        { x: -1, y: 0 },
+        { x: 1, y: 0 },
       ];
 
       for (const dir of directions) {
@@ -97,7 +231,6 @@ export class MazeGenerator {
       }
     }
 
-    // Count total non-wall spaces
     let totalSpaces = 0;
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
@@ -107,88 +240,28 @@ export class MazeGenerator {
       }
     }
 
-    // All non-wall spaces should be reachable
     return reachableCount === totalSpaces;
   }
 
-  private createBorderWalls(walls: boolean[][], width: number, height: number): void {
-    // Top and bottom borders
-    for (let x = 0; x < width; x++) {
-      walls[0][x] = true;
-      walls[height - 1][x] = true;
-    }
-
-    // Left and right borders
-    for (let y = 0; y < height; y++) {
-      walls[y][0] = true;
-      walls[y][width - 1] = true;
-    }
-  }
-
-  private generateMazeStructure(
-    walls: boolean[][],
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    level: number
-  ): void {
-    // Base case: area too small
-    if (w < 3 || h < 3) return;
-
-    // Increase complexity with level
-    const complexity = Math.min(0.3 + level * 0.05, 0.7);
-    const density = Math.min(0.2 + level * 0.03, 0.5);
-
-    // Randomly place walls based on complexity
-    for (let dy = 0; dy < h; dy++) {
-      for (let dx = 0; dx < w; dx++) {
-        if (Math.random() < density) {
-          const wallX = x + dx;
-          const wallY = y + dy;
-          if (wallX > 0 && wallX < walls[0].length - 1 && wallY > 0 && wallY < walls.length - 1) {
-            walls[wallY][wallX] = true;
-          }
-        }
-      }
-    }
-
-    // Create some corridors to ensure connectivity
-    if (Math.random() < complexity) {
-      const corridorY = y + Math.floor(h / 2);
-      for (let dx = 0; dx < w; dx++) {
-        walls[corridorY][x + dx] = false;
-      }
-    }
-
-    if (Math.random() < complexity) {
-      const corridorX = x + Math.floor(w / 2);
-      for (let dy = 0; dy < h; dy++) {
-        walls[y + dy][corridorX] = false;
-      }
-    }
-  }
-
   private createTunnels(walls: boolean[][], width: number, height: number): TunnelPair[] {
-    // Create tunnels on opposite sides (left and right)
     const tunnelY = Math.floor(height / 2);
 
-    // Clear tunnel paths
+    // Clear tunnel paths on both sides
     walls[tunnelY][0] = false;
     walls[tunnelY][width - 1] = false;
+    
+    // Ensure corridor connects to tunnels
+    for (let x = 0; x < 3; x++) {
+      walls[tunnelY][x] = false;
+      walls[tunnelY][width - 1 - x] = false;
+    }
 
     const leftTunnel: Position = { x: 0, y: tunnelY };
     const rightTunnel: Position = { x: width - 1, y: tunnelY };
 
     return [
-      {
-        entrance: leftTunnel,
-        exit: rightTunnel,
-      },
-      {
-        entrance: rightTunnel,
-        exit: leftTunnel,
-      },
+      { entrance: leftTunnel, exit: rightTunnel },
+      { entrance: rightTunnel, exit: leftTunnel },
     ];
   }
 
@@ -203,16 +276,18 @@ export class MazeGenerator {
       .fill(null)
       .map(() => Array(width).fill(false));
 
-    // Place dots in all non-wall spaces except spawn points
+    // Place dots in all walkable spaces except spawn points
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
-        if (
-          !walls[y][x] &&
-          !(x === playerSpawn.x && y === playerSpawn.y) &&
-          !(x === ghostSpawn.x && y === ghostSpawn.y)
-        ) {
-          dots[y][x] = true;
+        if (walls[y][x]) continue;
+        
+        // Skip spawn points and area around ghost spawn
+        const distToGhost = Math.abs(x - ghostSpawn.x) + Math.abs(y - ghostSpawn.y);
+        if ((x === playerSpawn.x && y === playerSpawn.y) || distToGhost <= 2) {
+          continue;
         }
+        
+        dots[y][x] = true;
       }
     }
 
@@ -222,12 +297,12 @@ export class MazeGenerator {
   private placePowerPellets(walls: boolean[][], width: number, height: number): Position[] {
     const powerPellets: Position[] = [];
 
-    // Place 4 power pellets in corners
+    // Place 4 power pellets near corners
     const corners = [
-      { x: 2, y: 2 },
-      { x: width - 3, y: 2 },
-      { x: 2, y: height - 3 },
-      { x: width - 3, y: height - 3 },
+      { x: 1, y: 3 },
+      { x: width - 2, y: 3 },
+      { x: 1, y: height - 4 },
+      { x: width - 2, y: height - 4 },
     ];
 
     for (const corner of corners) {
@@ -237,47 +312,5 @@ export class MazeGenerator {
     }
 
     return powerPellets;
-  }
-
-  private generateSimpleMaze(_level: number): MazeData {
-    const width = this.baseWidth;
-    const height = this.baseHeight;
-
-    // Create a simple maze with corridors
-    const walls: boolean[][] = Array(height)
-      .fill(null)
-      .map(() => Array(width).fill(false));
-
-    // Create border walls
-    this.createBorderWalls(walls, width, height);
-
-    // Create some simple wall patterns
-    for (let y = 3; y < height - 3; y += 4) {
-      for (let x = 3; x < width - 3; x += 4) {
-        walls[y][x] = true;
-        walls[y][x + 1] = true;
-      }
-    }
-
-    const tunnels = this.createTunnels(walls, width, height);
-    const playerSpawn: Position = { x: Math.floor(width / 2), y: height - 2 };
-    const ghostSpawn: Position = { x: Math.floor(width / 2), y: Math.floor(height / 2) };
-
-    walls[playerSpawn.y][playerSpawn.x] = false;
-    walls[ghostSpawn.y][ghostSpawn.x] = false;
-
-    const dots = this.placeDots(walls, width, height, playerSpawn, ghostSpawn);
-    const powerPellets = this.placePowerPellets(walls, width, height);
-
-    return {
-      width,
-      height,
-      walls,
-      dots,
-      powerPellets,
-      tunnels,
-      ghostSpawn,
-      playerSpawn,
-    };
   }
 }

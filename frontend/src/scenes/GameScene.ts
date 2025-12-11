@@ -28,8 +28,8 @@ class GameScene extends Phaser.Scene {
   private readonly BASE_GHOST_FRIGHTENED_SPEED = 40;
   private readonly BASE_POWER_PELLET_DURATION = 10000; // 10 seconds
   private scatterModeTimer: number = 0;
-  private readonly SCATTER_DURATION = 7000; // 7 seconds
-  private readonly CHASE_DURATION = 20000; // 20 seconds
+  private readonly BASE_SCATTER_DURATION = 5000; // 5 seconds base
+  private readonly BASE_CHASE_DURATION = 20000; // 20 seconds base
   
   // Player movement state
   private currentDirection: Direction | null = null;
@@ -204,7 +204,21 @@ class GameScene extends Phaser.Scene {
     
     // Pause key - Space
     this.spaceKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    this.spaceKey.on('down', this.togglePause, this);
+    this.spaceKey.on('down', () => {
+      if (this.gameState.gameStatus === 'gameOver') {
+        this.restartGame();
+      } else {
+        this.togglePause();
+      }
+    });
+    
+    // Restart key - R
+    const restartKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+    restartKey.on('down', () => {
+      if (this.gameState.gameStatus === 'gameOver') {
+        this.restartGame();
+      }
+    });
     
     // Touch input
     this.input.on('pointerdown', this.handleTouchStart, this);
@@ -397,20 +411,20 @@ class GameScene extends Phaser.Scene {
       case 'left':
         this.player.setVelocity(-this.PLAYER_SPEED, 0);
         this.player.setFlipX(true);
-        this.player.play('pacman-left', true);
+        try { this.player.play('pacman-left', true); } catch (_e) { /* ignore */ }
         break;
       case 'right':
         this.player.setVelocity(this.PLAYER_SPEED, 0);
         this.player.setFlipX(false);
-        this.player.play('pacman-right', true);
+        try { this.player.play('pacman-right', true); } catch (_e) { /* ignore */ }
         break;
       case 'up':
         this.player.setVelocity(0, -this.PLAYER_SPEED);
-        this.player.play('pacman-up', true);
+        try { this.player.play('pacman-up', true); } catch (_e) { /* ignore */ }
         break;
       case 'down':
         this.player.setVelocity(0, this.PLAYER_SPEED);
-        this.player.play('pacman-down', true);
+        try { this.player.play('pacman-down', true); } catch (_e) { /* ignore */ }
         break;
     }
     
@@ -420,14 +434,19 @@ class GameScene extends Phaser.Scene {
   
   private playChompSound(): void {
     // Play chomp sound with a slight delay between plays for rhythm
-    if (this.chompSound && !this.chompSound.isPlaying) {
-      this.chompSound.play();
-      // Schedule next chomp sound
-      this.time.delayedCall(200, () => {
-        if (this.isMoving && this.gameState.gameStatus === 'playing') {
-          this.playChompSound();
-        }
-      });
+    try {
+      if (this.chompSound && !this.chompSound.isPlaying) {
+        this.chompSound.play();
+        // Schedule next chomp sound
+        this.time.delayedCall(200, () => {
+          if (this.isMoving && this.gameState.gameStatus === 'playing') {
+            this.playChompSound();
+          }
+        });
+      }
+    } catch (e) {
+      // Ignore audio errors - game should continue without sound
+      console.warn('Audio playback error:', e);
     }
   }
   
@@ -506,6 +525,9 @@ class GameScene extends Phaser.Scene {
 
     // Set collision for all wall tiles
     this.wallLayer.setCollisionByExclusion([-1]);
+    
+    // Set depth to ensure walls render on top of dots
+    this.wallLayer.setDepth(2);
   }
 
   private placeDots(): void {
@@ -515,7 +537,8 @@ class GameScene extends Phaser.Scene {
     // Place dots based on maze data
     for (let y = 0; y < this.currentMaze.height; y++) {
       for (let x = 0; x < this.currentMaze.width; x++) {
-        if (this.currentMaze.dots[y][x]) {
+        // Double-check: only place dot if maze says there's a dot AND no wall
+        if (this.currentMaze.dots[y][x] && !this.currentMaze.walls[y][x]) {
           const dot = this.dots.create(
             x * this.TILE_SIZE + this.TILE_SIZE / 2,
             y * this.TILE_SIZE + this.TILE_SIZE / 2,
@@ -523,6 +546,7 @@ class GameScene extends Phaser.Scene {
             0
           );
           dot.setScale(1);
+          dot.setDepth(1); // Ensure dots render below walls
         }
       }
     }
@@ -563,6 +587,7 @@ class GameScene extends Phaser.Scene {
     this.player = this.physics.add.sprite(spawnX, spawnY, 'pacman', 0);
     this.player.setCollideWorldBounds(true);
     this.player.setSize(12, 12); // Slightly smaller than tile for smoother movement
+    this.player.setDepth(10); // Render on top of everything
 
     // Set up collision between player and walls
     this.physics.add.collider(this.player, this.wallLayer);
@@ -652,54 +677,82 @@ class GameScene extends Phaser.Scene {
     const playerTileX = Math.floor(this.player.x / this.TILE_SIZE);
     const playerTileY = Math.floor(this.player.y / this.TILE_SIZE);
 
-    // Check if player is at a tunnel entrance
-    for (const tunnel of this.currentMaze.tunnels) {
-      if (playerTileX === tunnel.entrance.x && playerTileY === tunnel.entrance.y) {
-        // Teleport to exit
-        this.player.setPosition(
-          tunnel.exit.x * this.TILE_SIZE + this.TILE_SIZE / 2,
-          tunnel.exit.y * this.TILE_SIZE + this.TILE_SIZE / 2
-        );
-        break;
-      }
+    // Check if player is at a tunnel entrance (edge of map)
+    // Left tunnel: x = 0, teleport to right side (but not at the edge)
+    if (playerTileX <= 0 && this.currentDirection === 'left') {
+      // Teleport to right side, one tile inside
+      this.player.setPosition(
+        (this.currentMaze.width - 2) * this.TILE_SIZE + this.TILE_SIZE / 2,
+        playerTileY * this.TILE_SIZE + this.TILE_SIZE / 2
+      );
+      return;
+    }
+    
+    // Right tunnel: x = width-1, teleport to left side (but not at the edge)
+    if (playerTileX >= this.currentMaze.width - 1 && this.currentDirection === 'right') {
+      // Teleport to left side, one tile inside
+      this.player.setPosition(
+        1 * this.TILE_SIZE + this.TILE_SIZE / 2,
+        playerTileY * this.TILE_SIZE + this.TILE_SIZE / 2
+      );
+      return;
     }
   }
   
   private initializeGhosts(): void {
     const colors: GhostColor[] = ['red', 'pink', 'cyan', 'orange'];
-    const spawnX = this.currentMaze.ghostSpawn.x * this.TILE_SIZE + this.TILE_SIZE / 2;
-    const spawnY = this.currentMaze.ghostSpawn.y * this.TILE_SIZE + this.TILE_SIZE / 2;
+    const baseSpawnX = this.currentMaze.ghostSpawn.x;
+    const baseSpawnY = this.currentMaze.ghostSpawn.y;
+    
+    // Spawn each ghost at a different position around the ghost house
+    // Place them on the exit corridor (row 11) so they can immediately start moving
+    const spawnOffsets = [
+      { x: -2, y: -2 }, // Red: top-left of ghost house
+      { x: 2, y: -2 },  // Pink: top-right of ghost house
+      { x: -2, y: 2 },  // Cyan: bottom-left of ghost house
+      { x: 2, y: 2 },   // Orange: bottom-right of ghost house
+    ];
     
     // Define scatter targets (corners of the maze)
     const scatterTargets = [
-      { x: this.currentMaze.width - 2, y: 0 }, // Red: top-right
-      { x: 2, y: 0 }, // Pink: top-left
+      { x: this.currentMaze.width - 2, y: 1 }, // Red: top-right
+      { x: 1, y: 1 }, // Pink: top-left
       { x: this.currentMaze.width - 2, y: this.currentMaze.height - 2 }, // Cyan: bottom-right
-      { x: 2, y: this.currentMaze.height - 2 }, // Orange: bottom-left
+      { x: 1, y: this.currentMaze.height - 2 }, // Orange: bottom-left
     ];
+    
+    // Different starting directions for each ghost - point them toward exits
+    const startDirections: Direction[] = ['up', 'up', 'down', 'down'];
     
     // Calculate ghost speed based on level (increase by 5% per level, max 50% increase)
     const ghostSpeed = this.calculateGhostSpeed();
     
     this.ghosts = colors.map((color, index) => {
+      const spawnX = (baseSpawnX + spawnOffsets[index].x) * this.TILE_SIZE + this.TILE_SIZE / 2;
+      const spawnY = (baseSpawnY + spawnOffsets[index].y) * this.TILE_SIZE + this.TILE_SIZE / 2;
+      
       const sprite = this.physics.add.sprite(spawnX, spawnY, 'ghosts', index * 3);
       sprite.setCollideWorldBounds(true);
       sprite.setSize(12, 12);
+      sprite.setDepth(10); // Render on top of everything
       sprite.play(`ghost-${color}-normal`);
+      
+      // Don't use physics collider - we handle wall collision manually in moveGhost
+      // This allows ghosts to move freely in open areas like the ghost house
       
       return {
         id: color,
         sprite,
         color,
         mode: 'scatter' as GhostMode,
-        direction: 'left' as Direction,
+        direction: startDirections[index],
         speed: ghostSpeed,
         scatterTarget: scatterTargets[index],
       };
     });
     
-    // Start in scatter mode
-    this.scatterModeTimer = this.SCATTER_DURATION;
+    // Start in scatter mode (brief scatter before chase)
+    this.scatterModeTimer = this.calculateScatterDuration();
     
     // Set up ghost collisions
     this.setupGhostCollisions();
@@ -722,9 +775,23 @@ class GameScene extends Phaser.Scene {
         }
       });
       
-      // Reset timer
-      this.scatterModeTimer = newMode === 'scatter' ? this.SCATTER_DURATION : this.CHASE_DURATION;
+      // Reset timer - scatter gets shorter and chase gets longer at higher levels
+      const scatterDuration = this.calculateScatterDuration();
+      const chaseDuration = this.calculateChaseDuration();
+      this.scatterModeTimer = newMode === 'scatter' ? scatterDuration : chaseDuration;
     }
+  }
+  
+  private calculateScatterDuration(): number {
+    // Scatter duration decreases with level (min 2 seconds)
+    const reduction = (this.gameState.level - 1) * 500; // 0.5 seconds less per level
+    return Math.max(2000, this.BASE_SCATTER_DURATION - reduction);
+  }
+  
+  private calculateChaseDuration(): number {
+    // Chase duration increases with level (max 40 seconds)
+    const increase = (this.gameState.level - 1) * 2000; // 2 seconds more per level
+    return Math.min(40000, this.BASE_CHASE_DURATION + increase);
   }
   
   private updateGhosts(_delta: number): void {
@@ -733,40 +800,116 @@ class GameScene extends Phaser.Scene {
     this.ghosts.forEach(ghost => {
       if (!ghost.sprite) return;
       
-      // Get current tile position
+      const frightenedSpeed = this.calculateGhostFrightenedSpeed();
+      const speed = ghost.mode === 'frightened' ? frightenedSpeed : ghost.speed;
+      
+      // Get the tile the ghost is currently in (use floor for consistency)
       const ghostTileX = Math.floor(ghost.sprite.x / this.TILE_SIZE);
       const ghostTileY = Math.floor(ghost.sprite.y / this.TILE_SIZE);
       
-      // Check if ghost is at intersection (can change direction)
-      const isAtIntersection = this.isAtIntersection(ghostTileX, ghostTileY);
+      // Calculate the center of the current tile
+      const tileCenterX = ghostTileX * this.TILE_SIZE + this.TILE_SIZE / 2;
+      const tileCenterY = ghostTileY * this.TILE_SIZE + this.TILE_SIZE / 2;
       
-      if (isAtIntersection) {
-        // Choose new direction based on AI mode
-        const newDirection = this.chooseGhostDirection(ghost, ghostTileX, ghostTileY);
-        if (newDirection) {
+      // Distance from tile center
+      const distFromCenterX = Math.abs(ghost.sprite.x - tileCenterX);
+      const distFromCenterY = Math.abs(ghost.sprite.y - tileCenterY);
+      
+      // Check if ghost is at tile center (within 3 pixels for more reliable detection)
+      const atTileCenter = distFromCenterX < 3 && distFromCenterY < 3;
+      
+      // Track the last tile where we made a decision
+      const currentTileKey = `${ghostTileX},${ghostTileY}`;
+      const lastTileKey = (ghost as any).lastDecisionTile;
+      const isNewTile = currentTileKey !== lastTileKey;
+      
+      // Check if we can continue in current direction
+      const canContinue = this.canGhostMove(ghostTileX, ghostTileY, ghost.direction);
+      
+      // Make decisions at tile centers when:
+      // 1. We're at a new tile, OR
+      // 2. We're blocked and need to change direction
+      if (atTileCenter && (isNewTile || !canContinue)) {
+        // Snap exactly to grid center
+        ghost.sprite.x = tileCenterX;
+        ghost.sprite.y = tileCenterY;
+        
+        // Mark that we've made a decision at this tile
+        (ghost as any).lastDecisionTile = currentTileKey;
+        
+        // Count available directions at this exact tile
+        const availableDirs = this.countAvailableDirections(ghostTileX, ghostTileY);
+        
+        // Choose new direction if:
+        // - At intersection (3+ ways available)
+        // - Current direction is blocked
+        // - At a corner (2 ways but current direction blocked)
+        if (availableDirs >= 3 || !canContinue) {
+          const newDirection = this.chooseGhostDirection(ghost, ghostTileX, ghostTileY);
           ghost.direction = newDirection;
         }
       }
       
-      // Move ghost in current direction
-      this.moveGhost(ghost);
+      // Emergency fallback: if still blocked after decision, find any valid direction
+      if (!this.canGhostMove(ghostTileX, ghostTileY, ghost.direction)) {
+        // Snap to center
+        ghost.sprite.x = tileCenterX;
+        ghost.sprite.y = tileCenterY;
+        
+        const validDir = this.findAnyValidDirection(ghostTileX, ghostTileY);
+        if (validDir) {
+          ghost.direction = validDir;
+          (ghost as any).lastDecisionTile = null; // Reset to allow new decision
+        } else {
+          // Truly stuck - stop movement
+          ghost.sprite.setVelocity(0, 0);
+          return;
+        }
+      }
+      
+      // Move in the current direction with grid alignment
+      switch (ghost.direction) {
+        case 'left':
+          ghost.sprite.setVelocity(-speed, 0);
+          ghost.sprite.y = Phaser.Math.Linear(ghost.sprite.y, tileCenterY, 0.3);
+          break;
+        case 'right':
+          ghost.sprite.setVelocity(speed, 0);
+          ghost.sprite.y = Phaser.Math.Linear(ghost.sprite.y, tileCenterY, 0.3);
+          break;
+        case 'up':
+          ghost.sprite.setVelocity(0, -speed);
+          ghost.sprite.x = Phaser.Math.Linear(ghost.sprite.x, tileCenterX, 0.3);
+          break;
+        case 'down':
+          ghost.sprite.setVelocity(0, speed);
+          ghost.sprite.x = Phaser.Math.Linear(ghost.sprite.x, tileCenterX, 0.3);
+          break;
+      }
     });
   }
   
-  private isAtIntersection(tileX: number, tileY: number): boolean {
-    // Count available directions
-    let availableDirections = 0;
+  private findAnyValidDirection(tileX: number, tileY: number): Direction | null {
     const directions: Direction[] = ['up', 'down', 'left', 'right'];
-    
     for (const dir of directions) {
       if (this.canGhostMove(tileX, tileY, dir)) {
-        availableDirections++;
+        return dir;
       }
     }
-    
-    // Intersection if more than 2 directions available (not just forward/backward)
-    return availableDirections > 2;
+    return null;
   }
+  
+  private countAvailableDirections(tileX: number, tileY: number): number {
+    const directions: Direction[] = ['up', 'down', 'left', 'right'];
+    let count = 0;
+    for (const dir of directions) {
+      if (this.canGhostMove(tileX, tileY, dir)) {
+        count++;
+      }
+    }
+    return count;
+  }
+  
   
   private canGhostMove(tileX: number, tileY: number, direction: Direction): boolean {
     let nextTileX = tileX;
@@ -802,18 +945,62 @@ class GameScene extends Phaser.Scene {
     return !tile || tile.index === -1;
   }
   
-  private chooseGhostDirection(ghost: GhostState, tileX: number, tileY: number): Direction | null {
+  private chooseGhostDirection(ghost: GhostState, tileX: number, tileY: number): Direction {
     const playerTileX = Math.floor(this.player.x / this.TILE_SIZE);
     const playerTileY = Math.floor(this.player.y / this.TILE_SIZE);
     
     let targetX: number;
     let targetY: number;
     
-    // Determine target based on mode
+    // Determine target based on mode and ghost personality
     if (ghost.mode === 'chase') {
-      // Chase mode: target player position
-      targetX = playerTileX;
-      targetY = playerTileY;
+      // Each ghost has unique targeting behavior (like classic Pac-Man)
+      switch (ghost.color) {
+        case 'red': // Blinky - directly targets player
+          targetX = playerTileX;
+          targetY = playerTileY;
+          break;
+        case 'pink': // Pinky - targets 4 tiles ahead of player
+          targetX = playerTileX;
+          targetY = playerTileY;
+          if (this.currentDirection === 'up') targetY -= 4;
+          else if (this.currentDirection === 'down') targetY += 4;
+          else if (this.currentDirection === 'left') targetX -= 4;
+          else if (this.currentDirection === 'right') targetX += 4;
+          break;
+        case 'cyan': // Inky - complex targeting (uses Blinky's position)
+          // Target is 2 tiles ahead of player, then doubled from Blinky
+          const redGhost = this.ghosts.find(g => g.color === 'red');
+          const aheadX = playerTileX + (this.currentDirection === 'right' ? 2 : this.currentDirection === 'left' ? -2 : 0);
+          const aheadY = playerTileY + (this.currentDirection === 'down' ? 2 : this.currentDirection === 'up' ? -2 : 0);
+          if (redGhost?.sprite) {
+            const redTileX = Math.floor(redGhost.sprite.x / this.TILE_SIZE);
+            const redTileY = Math.floor(redGhost.sprite.y / this.TILE_SIZE);
+            targetX = aheadX + (aheadX - redTileX);
+            targetY = aheadY + (aheadY - redTileY);
+          } else {
+            targetX = playerTileX;
+            targetY = playerTileY;
+          }
+          break;
+        case 'orange': // Clyde - targets player when far, scatters when close
+          const distToPlayer = Math.sqrt(
+            Math.pow(tileX - playerTileX, 2) + Math.pow(tileY - playerTileY, 2)
+          );
+          if (distToPlayer > 8) {
+            // Far from player - chase
+            targetX = playerTileX;
+            targetY = playerTileY;
+          } else {
+            // Close to player - scatter to corner
+            targetX = ghost.scatterTarget.x;
+            targetY = ghost.scatterTarget.y;
+          }
+          break;
+        default:
+          targetX = playerTileX;
+          targetY = playerTileY;
+      }
     } else if (ghost.mode === 'scatter') {
       // Scatter mode: target corner
       targetX = ghost.scatterTarget.x;
@@ -827,20 +1014,33 @@ class GameScene extends Phaser.Scene {
       targetY = this.currentMaze.ghostSpawn.y;
     }
     
-    // Find best direction toward target (no backtracking)
+    // Clamp target to maze bounds
+    targetX = Math.max(0, Math.min(this.currentMaze.width - 1, targetX));
+    targetY = Math.max(0, Math.min(this.currentMaze.height - 1, targetY));
+    
+    // Find best direction toward target (prefer not backtracking)
     const oppositeDirection = this.getOppositeDirection(ghost.direction);
     const directions: Direction[] = ['up', 'down', 'left', 'right'];
-    const availableDirections = directions.filter(
+    
+    // First try directions that aren't backtracking
+    let availableDirections = directions.filter(
       dir => dir !== oppositeDirection && this.canGhostMove(tileX, tileY, dir)
     );
     
+    // If no forward options, allow backtracking
     if (availableDirections.length === 0) {
-      // If no other option, allow backtracking
-      return this.getOppositeDirection(ghost.direction);
+      availableDirections = directions.filter(
+        dir => this.canGhostMove(tileX, tileY, dir)
+      );
+    }
+    
+    // If still no options, keep current direction
+    if (availableDirections.length === 0) {
+      return ghost.direction;
     }
     
     // Choose direction that minimizes distance to target
-    let bestDirection: Direction | null = null;
+    let bestDirection: Direction = availableDirections[0];
     let bestDistance = Infinity;
     
     for (const dir of availableDirections) {
@@ -880,28 +1080,6 @@ class GameScene extends Phaser.Scene {
       case 'down': return 'up';
       case 'left': return 'right';
       case 'right': return 'left';
-    }
-  }
-  
-  private moveGhost(ghost: GhostState): void {
-    if (!ghost.sprite) return;
-    
-    const frightenedSpeed = this.calculateGhostFrightenedSpeed();
-    const speed = ghost.mode === 'frightened' ? frightenedSpeed : ghost.speed;
-    
-    switch (ghost.direction) {
-      case 'left':
-        ghost.sprite.setVelocity(-speed, 0);
-        break;
-      case 'right':
-        ghost.sprite.setVelocity(speed, 0);
-        break;
-      case 'up':
-        ghost.sprite.setVelocity(0, -speed);
-        break;
-      case 'down':
-        ghost.sprite.setVelocity(0, speed);
-        break;
     }
   }
   
@@ -987,6 +1165,9 @@ class GameScene extends Phaser.Scene {
   }
   
   private loseLife(): void {
+    // Temporarily pause the game during death sequence
+    this.gameState.gameStatus = 'paused';
+    
     // Play death sound
     if (this.deathSound) {
       this.deathSound.play();
@@ -994,6 +1175,10 @@ class GameScene extends Phaser.Scene {
     
     // Stop movement sound
     this.isMoving = false;
+    
+    // Stop all movement
+    this.player?.setVelocity(0, 0);
+    this.ghosts.forEach(ghost => ghost.sprite?.setVelocity(0, 0));
     
     // Stop siren if playing
     if (this.sirenSound && this.sirenSound.isPlaying) {
@@ -1007,9 +1192,10 @@ class GameScene extends Phaser.Scene {
     if (this.gameState.lives <= 0) {
       this.gameOver();
     } else {
-      // Reset positions after death sound finishes
-      this.time.delayedCall(1000, () => {
+      // Reset positions after death animation and resume game
+      this.time.delayedCall(1500, () => {
         this.resetPositions();
+        this.gameState.gameStatus = 'playing';
       });
     }
   }
@@ -1030,6 +1216,30 @@ class GameScene extends Phaser.Scene {
     
     // Emit game over event (will be used by React UI in future tasks)
     this.events.emit('gameOver', this.gameState.score);
+  }
+  
+  public restartGame(): void {
+    // Reset game state
+    this.gameState = {
+      score: 0,
+      lives: 3,
+      level: 1,
+      powerMode: false,
+      powerModeTimer: 0,
+      gameStatus: 'playing',
+    };
+    
+    // Clear current maze and regenerate
+    this.clearMaze();
+    this.generateAndRenderMaze();
+    
+    // Reset movement state
+    this.currentDirection = null;
+    this.nextDirection = null;
+    this.isMoving = false;
+    
+    // Emit restart event
+    this.events.emit('gameRestarted');
   }
 
   public getGameState(): GameState {
@@ -1195,6 +1405,20 @@ class GameScene extends Phaser.Scene {
   
   public getGhostSpeed(): number {
     return this.calculateGhostSpeed();
+  }
+  
+  public disableKeyboardInput(): void {
+    // Disable keyboard input capture so React can handle it
+    if (this.input.keyboard) {
+      this.input.keyboard.enabled = false;
+    }
+  }
+  
+  public enableKeyboardInput(): void {
+    // Re-enable keyboard input for the game
+    if (this.input.keyboard) {
+      this.input.keyboard.enabled = true;
+    }
   }
 }
 

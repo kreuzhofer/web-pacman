@@ -6,9 +6,10 @@ interface GameOverProps {
   score: number;
   onScoreSubmitted?: () => void;
   onRestart?: () => void;
+  onReturnToStart?: () => void;
 }
 
-const GameOver: React.FC<GameOverProps> = ({ score, onScoreSubmitted, onRestart }) => {
+const GameOver: React.FC<GameOverProps> = ({ score, onScoreSubmitted, onRestart, onReturnToStart }) => {
   const [acronym, setAcronym] = useState('');
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -105,15 +106,35 @@ const GameOver: React.FC<GameOverProps> = ({ score, onScoreSubmitted, onRestart 
             >
               {submitting ? 'SUBMITTING...' : 'SUBMIT'}
             </button>
+            
+            <div className="button-row">
+              {onRestart && (
+                <button type="button" onClick={onRestart} className="action-button play-again-button">
+                  PLAY AGAIN
+                </button>
+              )}
+              {onReturnToStart && (
+                <button type="button" onClick={onReturnToStart} className="action-button return-button">
+                  MAIN MENU
+                </button>
+              )}
+            </div>
           </form>
         ) : (
           <div className="submitted-message">
             <p>SCORE SAVED!</p>
-            {onRestart && (
-              <button onClick={onRestart} className="restart-button">
-                PLAY AGAIN
-              </button>
-            )}
+            <div className="button-row">
+              {onRestart && (
+                <button onClick={onRestart} className="action-button play-again-button">
+                  PLAY AGAIN
+                </button>
+              )}
+              {onReturnToStart && (
+                <button onClick={onReturnToStart} className="action-button return-button">
+                  MAIN MENU
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

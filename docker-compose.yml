@@ -22,6 +22,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    pull_policy: build      
     container_name: pacman-backend
     environment:
       DATABASE_URL: postgresql://pacman:pacman@postgres:5432/pacman?schema=public
@@ -43,6 +44,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    pull_policy: build      
     container_name: pacman-frontend
     ports:
       - "3000:80"

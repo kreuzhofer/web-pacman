@@ -42,12 +42,14 @@ export class SpriteAssets {
 
     const graphics = scene.make.graphics({}, false);
     
+    // Draw all frames side by side (don't clear between frames)
     for (let i = 0; i < totalFrames; i++) {
-      graphics.clear();
+      const offsetX = i * frameWidth;
+      
       graphics.fillStyle(0xffff00, 1); // Yellow
       
       // Draw a circle (simplified Pacman)
-      const centerX = frameWidth / 2;
+      const centerX = offsetX + frameWidth / 2;
       const centerY = frameHeight / 2;
       const radius = 7;
       
@@ -71,6 +73,7 @@ export class SpriteAssets {
         );
         graphics.closePath();
         graphics.fillPath();
+        graphics.fillStyle(0xffff00, 1); // Reset to yellow for next frame
       }
     }
     
@@ -89,8 +92,9 @@ export class SpriteAssets {
 
     const graphics = scene.make.graphics({}, false);
     
+    // Draw all frames side by side (don't clear between frames)
     for (let i = 0; i < totalFrames; i++) {
-      graphics.clear();
+      const offsetX = i * frameWidth;
       
       const colorIndex = Math.floor(i / 3);
       const state = i % 3; // 0: normal, 1: frightened, 2: eaten
@@ -107,13 +111,13 @@ export class SpriteAssets {
       }
       
       // Draw simplified ghost shape
-      graphics.fillRect(2, 4, 12, 12);
+      graphics.fillRect(offsetX + 2, 4, 12, 12);
       
       // Draw eyes (white dots for normal/frightened, larger for eaten)
       if (state !== 2) {
         graphics.fillStyle(0xffffff, 1);
-        graphics.fillCircle(6, 8, 2);
-        graphics.fillCircle(10, 8, 2);
+        graphics.fillCircle(offsetX + 6, 8, 2);
+        graphics.fillCircle(offsetX + 10, 8, 2);
       }
     }
     
@@ -166,5 +170,39 @@ export class SpriteAssets {
     this.generateGhostSprites(scene);
     this.generateMazeTiles(scene);
     this.generateItemSprites(scene);
+    
+    // Add frame data to sprite sheets
+    this.addSpriteSheetFrames(scene);
+  }
+  
+  /**
+   * Add frame data to generated sprite sheets so Phaser knows how to slice them
+   */
+  static addSpriteSheetFrames(scene: Phaser.Scene): void {
+    const textureManager = scene.textures;
+    
+    // Add frames to pacman sprite sheet (4 frames, 16x16 each)
+    const pacmanTexture = textureManager.get('pacman');
+    if (pacmanTexture) {
+      for (let i = 0; i < 4; i++) {
+        pacmanTexture.add(i, 0, i * 16, 0, 16, 16);
+      }
+    }
+    
+    // Add frames to ghosts sprite sheet (12 frames, 16x16 each)
+    const ghostsTexture = textureManager.get('ghosts');
+    if (ghostsTexture) {
+      for (let i = 0; i < 12; i++) {
+        ghostsTexture.add(i, 0, i * 16, 0, 16, 16);
+      }
+    }
+    
+    // Add frames to items sprite sheet (2 frames, 16x16 each)
+    const itemsTexture = textureManager.get('items');
+    if (itemsTexture) {
+      for (let i = 0; i < 2; i++) {
+        itemsTexture.add(i, 0, i * 16, 0, 16, 16);
+      }
+    }
   }
 }

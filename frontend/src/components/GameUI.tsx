@@ -24,8 +24,15 @@ const GameUI: React.FC<GameUIProps> = ({ gameState }) => {
       <div className="lives-display">
         <span className="label">LIVES</span>
         <div className="lives-icons">
-          {Array.from({ length: gameState.lives }).map((_, index) => (
-            <div key={index} className="life-icon">●</div>
+          {Array.from({ length: Math.max(0, gameState.lives) }).map((_, index) => (
+            <div key={index} className="life-icon">
+              <svg width="16" height="16" viewBox="0 0 16 16">
+                <path 
+                  d="M8 1 A7 7 0 1 1 8 15 A7 7 0 1 1 8 1 M8 8 L15 4 L15 12 Z" 
+                  fill="#FFFF00"
+                />
+              </svg>
+            </div>
           ))}
         </div>
       </div>

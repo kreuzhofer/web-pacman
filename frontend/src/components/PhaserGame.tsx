@@ -77,14 +77,30 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ onGameReady }) => {
     setShowGameOver(false);
     setShowHighScores(false);
     setShowPauseScreen(false);
-    setShowStartScreen(true);
-    setGameStarted(false);
+    setGameStarted(true);
     
-    // Restart the game
+    // Restart the game immediately (don't go to start screen)
     if (gameRef.current) {
       const scene = gameRef.current.scene.getScene('GameScene') as GameScene;
       if (scene) {
-        scene.scene.restart();
+        scene.restartGame();
+      }
+    }
+  }, []);
+
+  const handleReturnToStart = useCallback(() => {
+    setShowGameOver(false);
+    setShowHighScores(false);
+    setShowPauseScreen(false);
+    setShowStartScreen(true);
+    setGameStarted(false);
+    
+    // Reset the game scene
+    if (gameRef.current) {
+      const scene = gameRef.current.scene.getScene('GameScene') as GameScene;
+      if (scene) {
+        scene.restartGame();
+        scene.pauseGame();
       }
     }
   }, []);
@@ -116,69 +132,108 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ onGameReady }) => {
 
     // Create game instance
     gameRef.current = new Phaser.Game(config);
-
-    // Set up event listeners for game state updates
-    const scene = gameRef.current.scene.getScene('GameScene') as GameScene;
     
-    if (scene) {
-      // Pause the game initially until start screen is dismissed
-      scene.pauseGame();
+    let updateInterval: ReturnType<typeof setInterval> | null = null;
+    let sceneReadyCheckInterval: ReturnType<typeof setInterval> | null = null;
+
+    // Poll for scene readiness since Phaser's ready event may fire before scene is created
+    sceneReadyCheckInterval = setInterval(() => {
+      const scene = gameRef.current?.scene.getScene('GameScene') as GameScene;
       
-      // Update game state periodically
-      const updateInterval = setInterval(() => {
-        if (scene && scene.scene.isActive()) {
-          const currentState = scene.getGameState();
-          setGameState(currentState);
-          
-          // Update pause screen visibility based on game state
-          if (currentState.gameStatus === 'paused' && gameStarted && !showGameOver) {
-            setShowPauseScreen(true);
-          } else if (currentState.gameStatus === 'playing') {
-            setShowPauseScreen(false);
+      if (scene && scene.scene.isActive()) {
+        // Scene is ready, clear the check interval
+        if (sceneReadyCheckInterval) {
+          clearInterval(sceneReadyCheckInterval);
+          sceneReadyCheckInterval = null;
+        }
+        
+        // Pause the game initially until start screen is dismissed
+        scene.pauseGame();
+        
+        // Update game state periodically
+        updateInterval = setInterval(() => {
+          if (scene && scene.scene.isActive()) {
+            const currentState = scene.getGameState();
+            setGameState(currentState);
           }
+        }, 100);
+
+        // Listen for game over event
+        scene.events.on('gameOver', (score: number) => {
+          setFinalScore(score);
+          setShowGameOver(true);
+        });
+        
+        // Listen for pause event
+        scene.events.on('gamePaused', () => {
+          // Only show pause screen if game has started and not game over
+          const currentState = scene.getGameState();
+          if (currentState.gameStatus !== 'gameOver') {
+            setShowPauseScreen(true);
+          }
+        });
+        
+        // Listen for resume event
+        scene.events.on('gameResumed', () => {
+          setShowPauseScreen(false);
+        });
+        
+        // Listen for restart event
+        scene.events.on('gameRestarted', () => {
+          setShowGameOver(false);
+          setShowPauseScreen(false);
+        });
+
+        // Notify parent component when game is ready
+        if (onGameReady && gameRef.current) {
+          onGameReady(gameRef.current);
         }
-      }, 100);
-
-      // Listen for game over event
-      scene.events.on('gameOver', (score: number) => {
-        setFinalScore(score);
-        setShowGameOver(true);
-      });
-      
-      // Listen for pause event
-      scene.events.on('gamePaused', () => {
-        if (gameStarted && !showGameOver) {
-          setShowPauseScreen(true);
-        }
-      });
-      
-      // Listen for resume event
-      scene.events.on('gameResumed', () => {
-        setShowPauseScreen(false);
-      });
-
-      // Cleanup interval on unmount
-      return () => {
-        clearInterval(updateInterval);
-      };
-    }
-
-    // Notify parent component when game is ready
-    if (onGameReady) {
-      onGameReady(gameRef.current);
-    }
+      }
+    }, 100);
 
     // Cleanup on unmount
     return () => {
+      if (sceneReadyCheckInterval) {
+        clearInterval(sceneReadyCheckInterval);
+      }
+      if (updateInterval) {
+        clearInterval(updateInterval);
+      }
       if (gameRef.current) {
         gameRef.current.destroy(true);
         gameRef.current = null;
       }
     };
-  }, [onGameReady, gameStarted, showGameOver]);
+  }, [onGameReady]);
+
+  // Check if any overlay is showing (where we shouldn't intercept keys)
+  const isOverlayShowing = showStartScreen || showGameOver || showHighScores || showPauseScreen;
+  
+  // Disable/enable Phaser keyboard input based on overlay state
+  useEffect(() => {
+    if (gameRef.current) {
+      const scene = gameRef.current.scene.getScene('GameScene') as GameScene;
+      if (scene) {
+        if (isOverlayShowing) {
+          scene.disableKeyboardInput();
+        } else {
+          scene.enableKeyboardInput();
+        }
+      }
+    }
+  }, [isOverlayShowing]);
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div 
+      style={{ position: 'relative', width: '100%', height: '100%' }}
+      onKeyDown={(e) => {
+        // Only prevent default for game keys when actually playing (no overlays)
+        if (!isOverlayShowing && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'w', 'a', 's', 'd', 'W', 'A', 'S', 'D'].includes(e.key)) {
+          e.preventDefault();
+        }
+      }}
+      tabIndex={0}
+    >
       <div
         ref={containerRef}
         style={{
@@ -197,8 +252,8 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ onGameReady }) => {
       {!showStartScreen && <GameUI gameState={gameState} />}
       
       {/* Pause Screen */}
-      {showPauseScreen && !showGameOver && (
-        <PauseScreen onResume={handleResume} onRestart={handleRestart} />
+      {showPauseScreen && !showGameOver && !showStartScreen && gameStarted && (
+        <PauseScreen onResume={handleResume} onRestart={handleReturnToStart} />
       )}
       
       {/* Game Over Screen */}
@@ -207,13 +262,27 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ onGameReady }) => {
           score={finalScore}
           onScoreSubmitted={handleScoreSubmitted}
           onRestart={handleRestart}
+          onReturnToStart={handleReturnToStart}
         />
       )}
       
       {/* High Score Table */}
       {showHighScores && (
         <HighScoreTable 
-          onClose={() => setShowHighScores(false)} 
+          onClose={() => {
+            setShowHighScores(false);
+            // Return to start screen after viewing high scores
+            setShowStartScreen(true);
+            setGameStarted(false);
+            // Reset the game scene
+            if (gameRef.current) {
+              const scene = gameRef.current.scene.getScene('GameScene') as GameScene;
+              if (scene) {
+                scene.restartGame();
+                scene.pauseGame();
+              }
+            }
+          }} 
           refresh={refreshHighScores}
         />
       )}
