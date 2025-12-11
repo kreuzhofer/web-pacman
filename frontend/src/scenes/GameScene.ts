@@ -1337,30 +1337,42 @@ class GameScene extends Phaser.Scene {
     // Increment level
     this.gameState.level += 1;
     
+    // Temporarily pause for level transition
+    this.gameState.gameStatus = 'paused';
+    
     // Stop player and ghosts
     this.player?.setVelocity(0, 0);
     this.ghosts.forEach(ghost => ghost.sprite?.setVelocity(0, 0));
-    
-    // Clear current maze elements
-    this.clearMaze();
-    
-    // Generate new maze for next level
-    this.generateAndRenderMaze();
-    
-    // Reset movement state
-    this.currentDirection = null;
-    this.nextDirection = null;
     
     // Exit power mode if active
     if (this.gameState.powerMode) {
       this.exitPowerMode();
     }
     
-    // Emit level advance event
-    this.events.emit('levelAdvance', this.gameState.level);
+    // Clear current maze elements (including player)
+    this.clearMaze();
+    
+    // Short delay before generating new level
+    this.time.delayedCall(500, () => {
+      // Generate new maze for next level
+      this.generateAndRenderMaze();
+      
+      // Reset movement state
+      this.currentDirection = null;
+      this.nextDirection = null;
+      
+      // Resume game
+      this.gameState.gameStatus = 'playing';
+      
+      // Emit level advance event
+      this.events.emit('levelAdvance', this.gameState.level);
+    });
   }
   
   private clearMaze(): void {
+    // Destroy player sprite
+    this.player?.destroy();
+    
     // Destroy all dots
     this.dots?.clear(true, true);
     

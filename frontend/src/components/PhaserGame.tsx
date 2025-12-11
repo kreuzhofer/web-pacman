@@ -225,7 +225,14 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ onGameReady }) => {
 
   return (
     <div 
-      style={{ position: 'relative', width: '100%', height: '100%' }}
+      style={{ 
+        position: 'relative', 
+        width: '100%', 
+        height: '100%',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
       onKeyDown={(e) => {
         // Only prevent default for game keys when actually playing (no overlays)
         if (!isOverlayShowing && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'w', 'a', 's', 'd', 'W', 'A', 'S', 'D'].includes(e.key)) {
@@ -237,8 +244,6 @@ const PhaserGame: React.FC<PhaserGameProps> = ({ onGameReady }) => {
       <div
         ref={containerRef}
         style={{
-          width: '100%',
-          height: '100%',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
